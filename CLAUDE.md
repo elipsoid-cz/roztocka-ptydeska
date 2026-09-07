@@ -8,7 +8,9 @@ Hlídač úředních desek pro město Roztoky u Prahy. Jednou denně stáhne nov
 dokumenty z úředních desek, vytáhne ty o územním plánování, nechá je jazykovým
 modelem přeložit do srozumitelné češtiny a doručí je jako GitHub issue
 (e-mail z něj rozešle GitHub sám) a volitelně na Telegram. Archiv zpráv drží
-`state/zpravy.json` a vykresluje ho statická stránka `index.html`.
+`state/zpravy.json` a vykresluje ho statická stránka `index.html`: nahoře
+kalendář nadcházejících termínů, pak nálezy, dole sbalený soupis toho, co
+hlídač neposlal.
 
 **Proč to vzniklo:** v Roztokách proběhlo veřejné projednání regulačního plánu
 lokality Panenská II a téměř nikdo o něm nevěděl. Oznámení viselo na úřední
@@ -37,6 +39,18 @@ i tu jednu důležitou.
   vypadlo.
 - Lhůty pro námitky běží od data vyvěšení, ne od načtení na edesky. Rozdíl bývá
   den, ale u posledního dne lhůty na tom záleží.
+- **`keywords` je u edesky API povinný parametr.** Bez něj server nevrátí
+  chybu, ale prázdný výsledek — což se ladí mizerně. Na výpis celé desky se
+  posílá `keywords=*`, jak to dělá i oficiální ruby klient edesky. Stránkuje
+  se po 200 dokumentech parametrem `page`.
+- Roztocká deska má řádově **45 dokumentů za měsíc**, z nichž se územního
+  plánování týkají jednotky. Objem je malý, takže se soupis desky vejde do
+  repozitáře i do stránky bez stránkování a lazy loadingu.
+- **GitHub nemá atom feed pro issues** (`/issues.atom` vrací 406), jen pro
+  commity. Kdyby měl někdo chtít odběr jinam než přes e-mail z issue, feed
+  by si musel hlídač generovat sám ze `zpravy.json`. Nejlevnější cesta, jak
+  rozeslat nálezy dalším lidem bez psaní kódu, je nechat repozitář sledovat
+  účet, jehož e-mail je adresa skupiny nebo konference.
 
 ## Architektura
 
@@ -70,6 +84,14 @@ Bonus: nálezy mají trvalou stopu a dají se odklikávat jako vyřízené.
 
 **Tvar záznamu v `state/zpravy.json` je veřejné API stránky.** Funkce
 `zaznam()` a čtení v `index.html` se musí měnit spolu.
+
+**Datum veřejného projednání má přednost před lhůtou.** Ve zprávě je nadpis
+(`NADPIS` v `casti()`) a je i v titulku issue, tedy v předmětu e-mailu, který
+z něj GitHub rozešle. Na stránce má větší písmo a plný štítek s odpočtem,
+zatímco lhůta jen obrys. Důvod: projednání je jediný údaj, který má podobu
+události — dá se na ni přijít a mluvit tam. Lhůta pro připomínky je z něj
+odvozená a nastává až po něm. Když model datum nevrátí, zůstane titulek holý;
+dopočítávat ho odjinud nebudeme.
 
 ## Zásady, které nerušit bez zeptání
 
@@ -158,7 +180,11 @@ na soubor, žádné logování hodnot.
 python -c "import ast; ast.parse(open('hlidac.py').read())"          # syntax
 EDESKY_API_KEY=... python hlidac.py --najdi-desku Černošice          # živý test API
 gh workflow run "Hlídač úředních desek" -f lookback_days=30 -f dry_run=1
+gh workflow run "Hlídač úředních desek" -f nahled=1 -f lookback_days=45
 ```
+
+Stránku je nejrychlejší zkusit lokálním serverem (`python3 -m http.server`)
+proti skutečnému `state/`; přes `file://` selže fetch na CORS.
 
 `DRY_RUN=1` neukládá stav a neposílá — používej ho při každé změně filtrů nebo
 promptu. Ověřovat proti reálným datům z posledních 30 dní je mnohem užitečnější
