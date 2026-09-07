@@ -19,6 +19,7 @@ index.html                    stránka s archivem zpráv, čte state/zpravy.json
 state/                        vznikne samo po prvním ostrém běhu
   seen.json                     už viděné dokumenty (dedup)
   zpravy.json                   archiv zpráv, ze kterého čte stránka
+  deska.json                    holý soupis desky, i to, co hlídač neposlal
 ```
 
 ## Nastavení

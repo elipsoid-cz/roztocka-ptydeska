@@ -52,10 +52,13 @@ GitHub Actions (cron)
   → filtr podle pole "relevantni"
   → GitHub issue (e-mail rozešle GitHub) + volitelně Telegram sendMessage
   → zápis do state/zpravy.json
+  → po odeslání ještě holý soupis desky (keywords=*, bez textů)
+    → state/deska.json
   → commit state/ zpátky do repa
 
 GitHub Pages (větev main, složka /)
   → index.html si fetchne state/zpravy.json a vykreslí archiv
+  → a state/deska.json, ze kterého dole vypíše, co neprošlo
 ```
 
 Externí závislosti: jen `requests`. Stránka nemá žádné — jen dva fonty
@@ -113,6 +116,20 @@ nejsou v něm „opatření obecné povahy" ani názvy lokalit. Pozor na skloňo
 **Relevanci posuzuje model, ne jen klíčová slova.** Fulltext vytáhne pod
 „opatření obecné povahy" i dopravní uzavírky, kterých je na desce spousta.
 Filtr přes pole `relevantni` je to, co drží počet notifikací nízko.
+
+**Soupis desky (`state/deska.json`) je jen pro stránku a nesmí do modelu.**
+Stahuje se až po odeslání, dotazem `keywords=*` — parametr je u edesky
+povinný a wildcard používá i jejich oficiální ruby klient. Schválně bez
+`include_texty`/`show_texts`: z tohohle průchodu nejde do Gemini nic a ani
+se nestahují texty, ve kterých bývají jména účastníků řízení. Soupis dává
+stránce možnost ukázat, co hlídač neposlal — bez něj nejde poznat rozdíl
+mezi „na desce nic nebylo" a „filtr to zahodil". Selhání soupisu nesmí
+shodit běh; je to vedlejší produkt, ne doručení.
+
+**U dokumentů ze soupisu se nedopisuje shrnutí.** Vypisují se holé: datum,
+název, odkaz. Model je nikdy neviděl (neprošly klíčovými slovy) nebo je
+zahodil — vymyslet k nim popis by bylo přesně to, čemu se hlídač jinde
+vyhýbá.
 
 **Heartbeat commit se nesmí zrušit.** GitHub vypíná scheduled workflows po
 60 dnech bez aktivity v repozitáři. Commit stavu nastane jen když se něco najde,
