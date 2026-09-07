@@ -131,6 +131,89 @@ input[type=search]::placeholder { color: var(--inkoust-slaby); opacity: .8; }
   margin-left: auto;
 }
 
+/* ---------- kalendář nadcházejících termínů ---------- */
+
+.kalendar {
+  border: 1px solid var(--linka);
+  border-top: 3px double var(--linka);
+  border-radius: 2px;
+  background: var(--papir-list);
+  box-shadow: var(--stin);
+  padding: 1.4rem 1.5rem 1.1rem;
+  margin-bottom: 2.5rem;
+}
+.kalendar h2 {
+  font: 500 .68rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--razitko);
+  margin: 0 0 1.1rem;
+}
+.kalendar ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .1rem; }
+
+.termin {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr auto;
+  gap: .2rem 1.2rem;
+  align-items: baseline;
+  padding: .75rem 0;
+  border-top: 1px solid var(--linka);
+}
+.termin:first-child { border-top: 0; }
+/* Na úzkém displeji se datum a odpočet dělí o první řádek, popis je pod nimi
+   přes celou šířku — vedle sebe se do třetiny obrazovky nevejdou. */
+@media (max-width: 40rem) {
+  .termin { grid-template-columns: auto 1fr; gap: .45rem .8rem; }
+  .termin-datum { grid-column: 1; grid-row: 1; }
+  .termin-odpocet { grid-column: 2; grid-row: 1; justify-self: end; }
+  .termin-co { grid-column: 1 / -1; grid-row: 2; }
+}
+
+.termin-datum {
+  font: 700 1rem/1.3 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: -.01em;
+  color: var(--inkoust-slaby);
+  white-space: nowrap;
+}
+.termin.jednani .termin-datum { color: var(--razitko); }
+
+.termin-co { display: grid; gap: .15rem; }
+.termin-druh {
+  font: 500 .6rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+}
+/* Projednání je akce, na kterou se dá přijít — proto silnější než lhůta. */
+.termin.jednani .termin-druh { color: var(--razitko); }
+.termin-co a {
+  color: var(--inkoust);
+  font-size: 1.02rem;
+  line-height: 1.35;
+  text-decoration-color: var(--linka);
+  text-underline-offset: 3px;
+}
+.termin.jednani .termin-co a { font-weight: 600; }
+.termin-co a:hover { color: var(--razitko); text-decoration-color: currentColor; }
+.termin-misto {
+  font: 400 .72rem/1.4 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--inkoust-slaby);
+}
+.termin-odpocet {
+  font: 500 .62rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+  white-space: nowrap;
+}
+/* Dnes a zítra: jediné dva dny, kdy se s tím ještě dá něco dělat na poslední chvíli. */
+.termin.ted .termin-odpocet {
+  color: var(--papir-list);
+  background: var(--razitko);
+  padding: .25rem .5rem;
+  border-radius: 2px;
+}
+
 /* ---------- výpis ---------- */
 
 .vypis { display: grid; gap: 1.5rem; }
@@ -231,8 +314,15 @@ article.bez-textu .shrnuti { font-style: italic; color: var(--inkoust-slaby); }
 }
 .udaj dd { margin: 0; font-weight: 500; }
 
-.lhuta { font-weight: 700; font-size: .95rem; }
-.lhuta.bezi { color: var(--razitko); }
+/* Projednání nese největší váhu ze všech údajů — je to termín, na který
+   se dá jít. Lhůta pro připomínky je pod ním o stupeň slabší. */
+.jednani { font-weight: 700; font-size: 1.1rem; line-height: 1.3; }
+.jednani.bezi { color: var(--razitko); }
+.jednani.probehlo { color: var(--inkoust-slaby); font-weight: 500; }
+.udaj-jednani .misto { font-weight: 400; font-size: .74rem; color: var(--inkoust-slaby); margin: .2rem 0 0; }
+
+.lhuta { font-weight: 500; font-size: .88rem; }
+.lhuta.bezi { color: var(--inkoust); }
 .lhuta.probehlo { color: var(--inkoust-slaby); font-weight: 400; text-decoration: line-through; }
 .zbyva {
   display: inline-block;
@@ -243,7 +333,20 @@ article.bez-textu .shrnuti { font-style: italic; color: var(--inkoust-slaby); }
   font-size: .62rem;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--razitko);
+  color: var(--inkoust-slaby);
+}
+/* Odpočet do projednání je plný štítek, odpočet lhůty jen obrys — ať je
+   na první pohled poznat, který z těch dvou dnů je ten, kam se chodí. */
+.udaj-jednani .zbyva {
+  border-color: var(--razitko);
+  background: var(--razitko);
+  color: var(--papir-list);
+}
+
+/* Krátké blikanec po odskoku z kalendáře, ať je vidět, kam to skočilo. */
+article.zvyraznen { outline: 2px solid var(--razitko); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  article.zvyraznen { transition: outline-color .3s; }
 }
 
 .stav-doruceni {
@@ -340,6 +443,11 @@ footer p { max-width: 60ch; margin: 0 0 .8rem; }
   <a href="./">na hlavní stránce</a>.
 </div>
 
+<section id="kalendar" hidden class="kalendar" aria-labelledby="kalendar-nadpis">
+  <h2 id="kalendar-nadpis">Co se chystá</h2>
+  <ol id="kalendar-seznam"></ol>
+</section>
+
 <div class="ovladani">
   <input type="search" id="hledat" placeholder="hledat v lokalitách a shrnutích…" autocomplete="off">
   <label class="prepinac">
@@ -369,6 +477,8 @@ const VYPIS = document.getElementById("vypis");
 const POCET = document.getElementById("pocet");
 const HLEDAT = document.getElementById("hledat");
 const JEN_OTEVRENE = document.getElementById("jen-otevrene");
+const KALENDAR = document.getElementById("kalendar");
+const KALENDAR_SEZNAM = document.getElementById("kalendar-seznam");
 
 let zpravy = [];
 
@@ -393,6 +503,24 @@ function sklonujDny(n) {
   return `zbývá ${n} dnů`;
 }
 
+/** Odpočet do budoucího termínu: „dnes", „zítra", „za 5 dnů". */
+function zaDni(n) {
+  if (n === 0) return "dnes";
+  if (n === 1) return "zítra";
+  if (n >= 2 && n <= 4) return `za ${n} dny`;
+  return `za ${n} dnů`;
+}
+
+/** „út 29. 9." — den v týdnu proto, že podle něj se plánuje účast. */
+function datumKratce(d) {
+  return d.toLocaleDateString("cs-CZ", { weekday: "short", day: "numeric", month: "numeric" });
+}
+
+/** YYYY-MM-DD pro atribut datetime, bez posunu časovou zónou. */
+function datumIso(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /**
  * Escapuje i uvozovky, protože se to vkládá i do atributů.
  * Texty i adresy pocházejí z cizích webů přes edesky — jsou to data,
@@ -415,8 +543,11 @@ function bezpecnaUrl(u) {
 function polozka(z) {
   const lhuta = nactiDatum(z.deadline);
   const jednani = nactiDatum(z.datum_jednani);
-  // Naléhavost řídí lhůta pro námitky; když není, aspoň datum projednání.
-  const rozhodne = lhuta || jednani;
+  // Naléhavost řídí nejbližší termín, který ještě nenastal. Projednání bývá
+  // dřív než lhůta, takže obvykle rozhoduje ono — a to je správně, protože
+  // přijít se dá jen na projednání, připomínku pak už jen poslat.
+  const budouci = [jednani, lhuta].filter(d => d && zbyvaDni(d) >= 0).sort((a, b) => a - b);
+  const rozhodne = budouci[0] || lhuta || jednani;
   const dni = rozhodne ? zbyvaDni(rozhodne) : null;
   const bezi = dni !== null && dni >= 0;
   const probehlo = dni !== null && dni < 0;
@@ -425,6 +556,7 @@ function polozka(z) {
   const zahozeno = z.relevantni === false;
 
   const el = document.createElement("article");
+  if (z.kotva) el.id = z.kotva;   // cíl odskoku z kalendáře
   el.className = [
     zahozeno ? "zahozeno" : (bezi ? "bezi" : (probehlo ? "probehlo" : "")),
     z.bez_textu ? "bez-textu" : "",
@@ -446,17 +578,26 @@ function polozka(z) {
   }
 
   const udaje = [];
+  // Projednání je hlavní údaj: je to jediná událost, kam se dá přijít
+  // a mluvit tam. Lhůta pro připomínky je z něj odvozená, proto až za ním.
   if (z.datum_jednani) {
-    udaje.push(`<div class="udaj"><dt>Veřejné projednání</dt><dd>${esc(z.datum_jednani)}${
-      z.misto_jednani ? `<br><span style="font-weight:400">${esc(z.misto_jednani)}</span>` : ""
-    }</dd></div>`);
+    const dniJ = jednani ? zbyvaDni(jednani) : null;
+    udaje.push(`<div class="udaj udaj-jednani"><dt>Veřejné projednání</dt>
+      <dd class="jednani ${dniJ === null ? "" : (dniJ >= 0 ? "bezi" : "probehlo")}">${esc(z.datum_jednani)}</dd>
+      ${z.misto_jednani ? `<dd class="misto">${esc(z.misto_jednani)}</dd>` : ""}
+      ${dniJ === null ? ""
+        : (dniJ >= 0 ? `<span class="zbyva">${zaDni(dniJ)}</span>`
+                     : `<span class="stav-doruceni">už proběhlo</span>`)}
+      </div>`);
   }
   if (z.deadline) {
-    const trida = bezi ? "bezi" : (probehlo ? "probehlo" : "");
-    udaje.push(`<div class="udaj"><dt>Námitky a připomínky do</dt>
+    const dniL = lhuta ? zbyvaDni(lhuta) : null;
+    const trida = dniL === null ? "" : (dniL >= 0 ? "bezi" : "probehlo");
+    udaje.push(`<div class="udaj"><dt>Připomínky a námitky do</dt>
       <dd class="lhuta ${trida}">${esc(z.deadline)}</dd>${
-        bezi ? `<span class="zbyva">${dni === 0 ? "dnes je poslední den" : sklonujDny(dni)}</span>`
-             : (probehlo ? `<span class="stav-doruceni">lhůta uplynula</span>` : "")
+        dniL !== null && dniL >= 0
+          ? `<span class="zbyva">${dniL === 0 ? "dnes je poslední den" : sklonujDny(dniL)}</span>`
+          : (dniL !== null ? `<span class="stav-doruceni">lhůta uplynula</span>` : "")
       }</div>`);
   }
   if (z.kdo_muze_podat) {
@@ -485,6 +626,61 @@ function polozka(z) {
     </div>
     <dl class="udaje">${udaje.join("")}</dl>`;
   return el;
+}
+
+/**
+ * Termíny, které teprve nastanou, seřazené od nejbližšího.
+ *
+ * Bere obojí — projednání i konec lhůty — protože obojí je den, který se dá
+ * zmeškat. Co už proběhlo, sem nepatří: kalendář má odpovídat na otázku
+ * „na co si mám dát pozor", ne být druhým výpisem archivu.
+ */
+function nadchazejiciTerminy() {
+  const t = [];
+  zpravy.forEach(z => {
+    if (z.relevantni === false) return;   // v náhledu i dokumenty, které filtr zahodil
+    const pridej = (hodnota, druh, popis, misto) => {
+      const d = nactiDatum(hodnota);
+      if (!d) return;
+      const dni = zbyvaDni(d);
+      if (dni < 0) return;
+      t.push({ d, dni, druh, popis, misto, nadpis: z.nadpis, kotva: z.kotva });
+    };
+    pridej(z.datum_jednani, "jednani", "Veřejné projednání", z.misto_jednani);
+    pridej(z.deadline, "lhuta", "Poslední den pro připomínky", "");
+  });
+  return t.sort((a, b) => a.d - b.d);
+}
+
+function vykresliKalendar() {
+  const terminy = nadchazejiciTerminy();
+  KALENDAR.hidden = !terminy.length;
+  if (!terminy.length) return;
+
+  KALENDAR_SEZNAM.innerHTML = terminy.map(t => `
+    <li class="termin ${t.druh}${t.dni <= 1 ? " ted" : ""}">
+      <time class="termin-datum" datetime="${datumIso(t.d)}">${esc(datumKratce(t.d))}</time>
+      <div class="termin-co">
+        <span class="termin-druh">${t.popis}</span>
+        <a href="#${esc(t.kotva)}" data-kotva="${esc(t.kotva)}">${esc(t.nadpis)}</a>
+        ${t.misto ? `<span class="termin-misto">${esc(t.misto)}</span>` : ""}
+      </div>
+      <span class="termin-odpocet">${zaDni(t.dni)}</span>
+    </li>`).join("");
+}
+
+/** Odskok z kalendáře na položku. Filtr, který ji schoval, se cestou zruší. */
+function skoc(kotva) {
+  if (!document.getElementById(kotva)) {
+    HLEDAT.value = "";
+    JEN_OTEVRENE.checked = false;
+    vykresli();
+  }
+  const cil = document.getElementById(kotva);
+  if (!cil) return;
+  cil.scrollIntoView({ behavior: "smooth", block: "center" });
+  cil.classList.add("zvyraznen");
+  setTimeout(() => cil.classList.remove("zvyraznen"), 1800);
 }
 
 function vykresli() {
@@ -549,6 +745,10 @@ fetch(`${SOUBOR}?v=${Date.now()}`)
   })
   .then(data => {
     zpravy = Array.isArray(data) ? data : [];
+    // Kotva je jediné pole, které si stránka dopisuje sama — v archivu není,
+    // protože je to věc vykreslení, ne záznamu.
+    zpravy.forEach((z, i) => { z.kotva = "zaznam-" + i; });
+    vykresliKalendar();
     vykresli();
     const posledni = zpravy[0] && zpravy[0].cas;
     if (posledni) {
@@ -564,6 +764,12 @@ fetch(`${SOUBOR}?v=${Date.now()}`)
 
 HLEDAT.addEventListener("input", vykresli);
 JEN_OTEVRENE.addEventListener("change", vykresli);
+KALENDAR_SEZNAM.addEventListener("click", e => {
+  const odkaz = e.target.closest("a[data-kotva]");
+  if (!odkaz) return;
+  e.preventDefault();
+  skoc(odkaz.dataset.kotva);
+});
 </script>
 </body>
 </html>
