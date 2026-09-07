@@ -70,7 +70,11 @@ Bonus: nálezy mají trvalou stopu a dají se odklikávat jako vyřízené.
 
 ## Zásady, které nerušit bez zeptání
 
-**Texty dokumentů se berou z `include_texts=1`, ne z `edesky_text_url`.**
+**Texty dokumentů se berou z parametrů u dotazu, ne z `edesky_text_url`.**
+Posílají se `include_texts=1` i `show_texts=1`. Dokumentace uvádí první,
+server si v `requested_params` echuje druhý — a se samotným `include_texts`
+chodily přílohy prázdné, přestože u nich edesky hlásilo `contains_text='1'`.
+Ani jeden z nich neodstraňovat.
 edesky je za bot ochranou Anubis, druhé HTTP volání na stažení textu je zbytečné
 riziko. Když API vrátí místo XML něco jiného, `edesky_get()` to pozná a vyhodí
 srozumitelnou chybu — tuhle kontrolu neodstraňovat.

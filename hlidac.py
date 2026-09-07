@@ -539,6 +539,11 @@ def diagnostika(dok: dict, shrnuti: dict) -> None:
         print("          modelu jsme se neptali (pod MIN_TEXT_CHARS)")
         return
 
+    if not shrnuti.get("relevantni"):
+        # U nerelevantního dokumentu jsou prázdná pole správně, ne chyba.
+        print("          model označil dokument za nerelevantní")
+        return
+
     print(f"          model vrátil: jednání={shrnuti.get('datum_jednani') or '—'!r}"
           f" lhůta={shrnuti.get('deadline') or '—'!r}")
     if data and not shrnuti.get("datum_jednani"):
