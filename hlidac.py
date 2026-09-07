@@ -243,6 +243,26 @@ def edesky_get(endpoint: str, params: dict) -> ET.Element:
     return ET.fromstring(resp.text)
 
 
+_parametry_vypsany = False
+
+
+def vypis_prijate_parametry(root: ET.Element) -> None:
+    """
+    V dry runu jednou vypíše, které parametry server v odpovědi potvrdil.
+
+    Slouží k ověření, jestli bere include_texts, nebo show_texts. Vypisují se
+    schválně jen NÁZVY parametrů — hodnoty obsahují api_key a log běhu je ve
+    veřejném repozitáři.
+    """
+    global _parametry_vypsany
+    if _parametry_vypsany or not DRY_RUN:
+        return
+    _parametry_vypsany = True
+    meta = root.find("./meta/requested_params")
+    nazvy = sorted(set(re.findall(r'"(\w+)"\s*=>', meta.text or ""))) if meta is not None else []
+    print(f"edesky potvrdilo parametry: {', '.join(nazvy) if nazvy else '(nevypsalo)'}")
+
+
 def najdi_desku(potreba: str) -> None:
     """Vypíše ID desek, jejichž název obsahuje hledaný řetězec."""
     root = edesky_get("dashboards", {"include_subordinated": 1})
@@ -272,13 +292,20 @@ def stahni_dokumenty() -> dict:
                         "search_with": "es",   # fulltext včetně obsahu PDF
                         "dashboard_id": dashboard_id,
                         "created_from": od,
+                        # Dokumentace uvádí include_texts, ale server si
+                        # v requested_params echuje show_texts. Posíláme oba —
+                        # s jedním samotným chodily přílohy prázdné, přestože
+                        # u nich edesky hlásilo contains_text='1'.
                         "include_texts": 1,
+                        "show_texts": 1,
                         "order": "date",
                     },
                 )
             except Exception as exc:  # noqa: BLE001
                 print(f"  ! deska {dashboard_id}, '{kw}': {exc}", file=sys.stderr)
                 continue
+
+            vypis_prijate_parametry(root)
 
             for doc in root.iter("document"):
                 url = doc.get("edesky_url")
