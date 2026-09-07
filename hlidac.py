@@ -85,6 +85,15 @@ ARCHIV_FILE = pathlib.Path("state/zpravy.json")
 # že si někdo splete zkušební překlad s tím, co hlídač opravdu poslal.
 NAHLED_FILE = pathlib.Path("state/nahled.json")
 
+# Holý soupis všeho, co za sledované období viselo na deskách — bez ohledu
+# na klíčová slova a bez textů. Slouží jen stránce, aby šlo dohledat i to,
+# co hlídač neposlal. Do modelu z něj nejde nic.
+DESKA_FILE = pathlib.Path("state/deska.json")
+
+# Jak dlouho ten soupis držet. Delší paměť nemá cenu: kdo hledá loňský
+# dokument, jde na edesky, ne sem.
+DESKA_DNI = int(os.environ.get("DESKA_DNI", "180"))
+
 # Kolik zpráv v archivu držet. Stránka je čte všechny najednou.
 MAX_ARCHIV = 500
 
@@ -342,6 +351,80 @@ def stahni_dokumenty() -> dict:
             time.sleep(1)  # slušnost vůči cizímu API
 
     return nalezene
+
+
+def stahni_soupis_desky() -> list[dict]:
+    """
+    Holý soupis dokumentů na sledovaných deskách, bez ohledu na klíčová slova.
+
+    Schválně bez `keywords` a bez `include_texts`/`show_texts`: tenhle průchod
+    je jen pro stránku, aby na ní šlo dohledat i to, co hlídač neposlal. Texty
+    by tekly po drátě zbytečně a do modelu z tohohle nejde nic.
+
+    Selhání se nesmí dotknout hlavního běhu — soupis je vedlejší produkt.
+    Když ho edesky nedá, vrátíme prázdno a hlídač pokračuje dál.
+    """
+    od = (date.today() - timedelta(days=LOOKBACK_DAYS)).isoformat()
+    soupis = []
+
+    for dashboard_id in DASHBOARDS:
+        try:
+            root = edesky_get(
+                "documents",
+                {"dashboard_id": dashboard_id, "created_from": od, "order": "date"},
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ! soupis desky {dashboard_id}: {exc}", file=sys.stderr)
+            continue
+
+        for doc in root.iter("document"):
+            url = doc.get("edesky_url")
+            if not url:
+                continue
+            soupis.append({
+                "url": url,
+                "nazev": doc.get("name", "").strip(),
+                "deska": doc.get("dashboard_name", ""),
+                "vlozeno": (doc.get("created_at", "") or "")[:10],
+            })
+        time.sleep(1)
+
+    return soupis
+
+
+def nacti_soupis() -> list:
+    if DESKA_FILE.exists():
+        return json.loads(DESKA_FILE.read_text(encoding="utf-8"))
+    return []
+
+
+def uloz_soupis(novy: list[dict]) -> int:
+    """
+    Přimíchá nově viděné dokumenty ke starým a ořeže soupis podle stáří.
+
+    Vrací, kolik dokumentů přibylo. Starší než DESKA_DNI vypadnou — soupis
+    má ukazovat souvislosti kolem toho, co hlídač poslal, ne suplovat archiv
+    edesky.
+    """
+    stary = {z["url"]: z for z in nacti_soupis()}
+    pribylo = sum(1 for z in novy if z["url"] not in stary)
+    for z in novy:
+        stary[z["url"]] = z
+
+    mez = (date.today() - timedelta(days=DESKA_DNI)).isoformat()
+    vse = sorted(
+        (z for z in stary.values() if z.get("vlozeno", "") >= mez),
+        key=lambda z: (z.get("vlozeno", ""), z.get("nazev", "")),
+        reverse=True,
+    )
+
+    if DRY_RUN:
+        return pribylo
+    DESKA_FILE.parent.mkdir(parents=True, exist_ok=True)
+    DESKA_FILE.write_text(
+        json.dumps(vse, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+    return pribylo
 
 
 def platne_url(u: str) -> str:
@@ -869,6 +952,16 @@ def main() -> int:
     uloz_stav(videne)
     uloz_bez_textu(bez_textu)
     uloz_archiv(archiv)
+
+    # Až po odeslání: soupis je jen pro stránku a nesmí zdržet doručení.
+    soupis = stahni_soupis_desky()
+    if soupis:
+        pribylo = uloz_soupis(soupis)
+        print(f"Soupis desky: {len(soupis)} dokumentů za období, "
+              f"{pribylo} z nich nových.")
+    else:
+        print("Soupis desky se nepodařilo načíst, stránka zůstane u starého.")
+
     print(f"\nHotovo. Zpráv k odeslání: {poslano}.")
     return 0
 

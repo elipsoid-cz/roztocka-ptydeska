@@ -411,6 +411,44 @@ article.zahozeno h2 { font-size: 1.1rem; font-weight: 400; }
 }
 .hlaska p { margin: 0 auto; max-width: 46ch; font-size: .95rem; }
 
+/* ---------- zbytek desky ---------- */
+
+/* Schválně nenápadné: je to doklad, že hlídač desku opravdu prošel, ne
+   druhý výpis nálezů. Sbalené, drobné, bez rámečku. */
+.deska { margin-top: 3rem; }
+.deska summary {
+  font: 500 .68rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+  cursor: pointer;
+  padding: .7rem 0;
+  border-top: 1px solid var(--linka);
+  border-bottom: 1px solid var(--linka);
+  user-select: none;
+}
+.deska summary:hover { color: var(--razitko); }
+.deska-vysvetleni {
+  font: 400 .78rem/1.6 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--inkoust-slaby);
+  max-width: 62ch;
+  margin: 1.2rem 0 1rem;
+}
+.deska ol { list-style: none; margin: 0; padding: 0 0 1rem; }
+.deska li {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  gap: .3rem .9rem;
+  padding: .3rem 0;
+  font: 400 .8rem/1.5 "JetBrains Mono", ui-monospace, monospace;
+}
+@media (max-width: 40rem) {
+  .deska li { grid-template-columns: 1fr; }
+}
+.deska time { color: var(--inkoust-slaby); white-space: nowrap; }
+.deska a { color: var(--inkoust-slaby); text-decoration-color: var(--linka); text-underline-offset: 3px; }
+.deska a:hover { color: var(--razitko); text-decoration-color: currentColor; }
+
 footer {
   margin-top: 4rem;
   padding-top: 1.5rem;
@@ -457,6 +495,15 @@ footer p { max-width: 60ch; margin: 0 0 .8rem; }
   <div class="hlaska"><strong>Načítám…</strong></div>
 </main>
 
+<details id="deska" hidden class="deska">
+  <summary id="deska-shrnuti"></summary>
+  <p class="deska-vysvetleni">Tyhle dokumenty hlídač viděl, ale neposlal —
+    buď neodpovídají klíčovým slovům, nebo je model vyhodnotil jako
+    nesouvisející s územním plánováním. Jsou tu jen jménem a odkazem,
+    bez shrnutí: nikdo je nečetl.</p>
+  <ol id="deska-seznam"></ol>
+</details>
+
 <footer>
   <p>Hlídač prochází úřední desky přes <a href="https://edesky.cz">edesky.cz</a>,
     vyhlášky o územním plánování nechá shrnout jazykovým modelem a zapíše sem.
@@ -476,8 +523,14 @@ const HLEDAT = document.getElementById("hledat");
 const JEN_OTEVRENE = document.getElementById("jen-otevrene");
 const KALENDAR = document.getElementById("kalendar");
 const KALENDAR_SEZNAM = document.getElementById("kalendar-seznam");
+const DESKA = document.getElementById("deska");
+const DESKA_SHRNUTI = document.getElementById("deska-shrnuti");
+const DESKA_SEZNAM = document.getElementById("deska-seznam");
 
 let zpravy = [];
+// Holý soupis všeho, co viselo na desce. Načítá se zvlášť a nezávisle:
+// když soubor není (starší stav repozitáře), sekce se prostě neukáže.
+let deska = [];
 
 /** "21.10.2026" nebo "14.10.2026 v 17:00" → Date, nebo null. */
 function nactiDatum(s) {
@@ -661,12 +714,50 @@ function vykresliKalendar() {
     </li>`).join("");
 }
 
+/** „2026-08-27" → „27. 8." (s rokem, jen když není letošní). */
+function datumZIso(s) {
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return "";
+  const rok = +m[1], letos = new Date().getFullYear();
+  return `${+m[3]}. ${+m[2]}.` + (rok === letos ? "" : ` ${rok}`);
+}
+
+/**
+ * Zbytek desky: co hlídač viděl a neposlal.
+ *
+ * Vypisuje se holé — datum, název, odkaz. Žádné shrnutí, protože u těchhle
+ * dokumentů žádné nevzniklo: buď neodpovídaly klíčovým slovům a model je
+ * nikdy neviděl, nebo je zahodil jako nesouvisející. Vymýšlet k nim popis
+ * by bylo přesně to, čemu se hlídač jinde vyhýbá.
+ */
+function vykresliDesku(dotaz) {
+  const poslane = new Set(zpravy.map(z => z.url));
+  const zbytek = deska.filter(d =>
+    !poslane.has(d.url) &&
+    (!dotaz || String(d.nazev || "").toLowerCase().includes(dotaz)));
+
+  DESKA.hidden = !deska.length;
+  if (!deska.length) return;
+
+  DESKA_SHRNUTI.textContent = zbytek.length
+    ? `Co ještě viselo na desce (${zbytek.length})`
+    : (dotaz ? "Nic dalšího neodpovídá" : "Na desce nebylo nic dalšího");
+
+  DESKA_SEZNAM.innerHTML = zbytek.map(d => `
+    <li>
+      <time datetime="${esc(d.vlozeno)}">${esc(datumZIso(d.vlozeno))}</time>
+      ${bezpecnaUrl(d.url)
+        ? `<a href="${bezpecnaUrl(d.url)}" rel="noopener nofollow">${esc(d.nazev)}</a>`
+        : `<span>${esc(d.nazev)}</span>`}
+    </li>`).join("");
+}
+
 /** Odskok z kalendáře na položku. Filtr, který ji schoval, se cestou zruší. */
 function skoc(kotva) {
   if (!document.getElementById(kotva)) {
     HLEDAT.value = "";
     JEN_OTEVRENE.checked = false;
-    vykresli();
+    vykresliVse();
   }
   const cil = document.getElementById(kotva);
   if (!cil) return;
@@ -719,6 +810,12 @@ function vykresli() {
   });
 }
 
+/** Hledání platí i pro zbytek desky, jinak by filtr lhal o tom, co je vidět. */
+function vykresliVse() {
+  vykresli();
+  vykresliDesku(HLEDAT.value.trim().toLowerCase());
+}
+
 // ?zdroj=nahled čte zkušební překlady místo skutečně odeslaných zpráv.
 const JE_NAHLED = new URLSearchParams(location.search).get("zdroj") === "nahled";
 const SOUBOR = JE_NAHLED ? "state/nahled.json" : "state/zpravy.json";
@@ -741,7 +838,7 @@ fetch(`${SOUBOR}?v=${Date.now()}`)
     // protože je to věc vykreslení, ne záznamu.
     zpravy.forEach((z, i) => { z.kotva = "zaznam-" + i; });
     vykresliKalendar();
-    vykresli();
+    vykresliVse();
     const posledni = zpravy[0] && zpravy[0].cas;
     if (posledni) {
       document.getElementById("aktualizace").textContent =
@@ -751,10 +848,20 @@ fetch(`${SOUBOR}?v=${Date.now()}`)
   .catch(() => {
     // Před prvním ostrým během soubor ještě neexistuje — to není chyba.
     zpravy = [];
-    vykresli();
+    vykresliVse();
   });
 
-HLEDAT.addEventListener("input", vykresli);
+// Soupis desky se načítá zvlášť: je to doplněk a jeho chybějící soubor
+// (starší stav repozitáře) nesmí shodit hlavní výpis.
+fetch(`state/deska.json?v=${Date.now()}`)
+  .then(r => r.ok ? r.json() : [])
+  .then(data => {
+    deska = Array.isArray(data) ? data : [];
+    vykresliDesku(HLEDAT.value.trim().toLowerCase());
+  })
+  .catch(() => {});
+
+HLEDAT.addEventListener("input", vykresliVse);
 JEN_OTEVRENE.addEventListener("change", vykresli);
 KALENDAR_SEZNAM.addEventListener("click", e => {
   const odkaz = e.target.closest("a[data-kotva]");
