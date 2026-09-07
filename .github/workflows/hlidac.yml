@@ -16,6 +16,14 @@ on:
         description: "1 = neukládat stav"
         required: false
         default: "0"
+      nahled:
+        description: "1 = náhled překladů, nic se neodešle (viz ?zdroj=nahled)"
+        required: false
+        default: "0"
+      dashboards:
+        description: "ID desek pro tenhle běh, prázdné = podle proměnné"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -44,13 +52,30 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          EDESKY_DASHBOARDS: ${{ vars.EDESKY_DASHBOARDS || '260' }}
+          EDESKY_DASHBOARDS: ${{ github.event.inputs.dashboards || vars.EDESKY_DASHBOARDS || '260' }}
           LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+          NAHLED: ${{ github.event.inputs.nahled || '0' }}
         run: python hlidac.py
 
+      - name: Uložit náhled
+        if: github.event.inputs.nahled == '1'
+        run: |
+          # Náhled commituje výhradně svůj soubor. Ostrý stav (seen.json,
+          # zpravy.json) se ho nesmí ani dotknout, jinak by zkušební běh
+          # umlčel dokumenty, na které se ještě neupozornilo.
+          if [[ -n "$(git status --porcelain state/nahled.json)" ]]; then
+            git config user.name "hlidac-bot"
+            git config user.email "actions@github.com"
+            git add state/nahled.json
+            git commit -m "náhled: $(date '+%Y-%m-%d %H:%M')"
+            git push
+          else
+            echo "Náhled beze změny."
+          fi
+
       - name: Uložit stav
-        if: github.event.inputs.dry_run != '1'
+        if: github.event.inputs.dry_run != '1' && github.event.inputs.nahled != '1'
         run: |
           git config user.name "hlidac-bot"
           git config user.email "actions@github.com"

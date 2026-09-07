@@ -36,6 +36,10 @@
 
 * { box-sizing: border-box; }
 
+/* Vlastní pravidla s display: … by jinak přebila výchozí chování atributu
+   hidden a schované prvky by zůstaly vidět. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background-color: var(--papir);
@@ -252,6 +256,44 @@ article.bez-textu .shrnuti { font-style: italic; color: var(--inkoust-slaby); }
 
 /* ---------- prázdné a chybové stavy ---------- */
 
+/* ---------- náhledový režim ---------- */
+
+.pruh-nahled {
+  margin-bottom: 2rem;
+  padding: 1rem 1.25rem;
+  border: 1.5px solid var(--razitko);
+  border-radius: 2px;
+  background: var(--razitko-tlum);
+  font: 400 .84rem/1.6 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--inkoust);
+}
+.pruh-nahled b {
+  display: block;
+  font-size: .68rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--razitko);
+  margin-bottom: .4rem;
+}
+.pruh-nahled a { color: var(--razitko); }
+
+/* Dokument, který model vyhodnotil jako nesouvisející s územním plánováním.
+   Na náhledu se ukazuje schválně — bez něj není vidět, co filtr zahazuje. */
+article.zahozeno { opacity: .55; }
+article.zahozeno::before { background: var(--linka); }
+article.zahozeno h2 { font-size: 1.1rem; font-weight: 400; }
+.stitek-verdikt {
+  display: inline-block;
+  margin-bottom: .7rem;
+  padding: .25rem .6rem;
+  border-radius: 2px;
+  font: 500 .62rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.stitek-verdikt.proslo { background: var(--razitko); color: var(--papir-list); }
+.stitek-verdikt.zahozeno { border: 1px solid var(--linka); color: var(--inkoust-slaby); }
+
 .hlaska {
   border: 1px dashed var(--linka);
   border-radius: 2px;
@@ -290,6 +332,13 @@ footer p { max-width: 60ch; margin: 0 0 .8rem; }
   <p class="podnadpis">Vyhlášky o územním plánování, vytažené z úřední desky
     a přeložené z ptydepe do češtiny.</p>
 </header>
+
+<div id="pruh-nahled" hidden class="pruh-nahled">
+  <b>Náhled překladů — tohle se nikomu neodeslalo</b>
+  Zkušební běh přes delší období. Ukazuje i dokumenty, které filtr zahodil,
+  aby šlo posoudit, jestli zahazuje správně. Ostré zprávy jsou
+  <a href="./">na hlavní stránce</a>.
+</div>
 
 <div class="ovladani">
   <input type="search" id="hledat" placeholder="hledat v lokalitách a shrnutích…" autocomplete="off">
@@ -372,11 +421,29 @@ function polozka(z) {
   const bezi = dni !== null && dni >= 0;
   const probehlo = dni !== null && dni < 0;
 
+  // relevantni je jen v náhledu; false = model dokument zahodil.
+  const zahozeno = z.relevantni === false;
+
   const el = document.createElement("article");
   el.className = [
-    bezi ? "bezi" : (probehlo ? "probehlo" : ""),
+    zahozeno ? "zahozeno" : (bezi ? "bezi" : (probehlo ? "probehlo" : "")),
     z.bez_textu ? "bez-textu" : "",
   ].filter(Boolean).join(" ");
+
+  if (zahozeno) {
+    // U zahozeného dokumentu nemá model vyplněná pole — ukazujeme jen to,
+    // podle čeho se dá posoudit, jestli je verdikt správný.
+    el.innerHTML = `
+      <div>
+        <span class="stitek-verdikt zahozeno">model zahodil</span>
+        <h2>${esc(z.nazev_dokumentu || z.nadpis)}</h2>
+        <div class="puvod">
+          <span>${esc(z.deska)}, vyvěšeno ${esc(z.vlozeno)}</span>
+          ${bezpecnaUrl(z.url) ? `<a href="${bezpecnaUrl(z.url)}" rel="noopener nofollow">dokument na edesky ↗</a>` : ""}
+        </div>
+      </div>`;
+    return el;
+  }
 
   const udaje = [];
   if (z.datum_jednani) {
@@ -430,7 +497,7 @@ function vykresli() {
         .join(" ").toLowerCase();
       if (!seno.includes(dotaz)) return false;
     }
-    if (jenOtevrene) {
+    if (jenOtevrene && !JE_NAHLED) {
       const d = nactiDatum(z.deadline) || nactiDatum(z.datum_jednani);
       if (!d || zbyvaDni(d) < 0) return false;
     }
@@ -446,10 +513,14 @@ function vykresli() {
     VYPIS.innerHTML = zpravy.length
       ? `<div class="hlaska"><strong>Nic neodpovídá</strong>
            <p>Zkuste kratší výraz nebo vypněte filtr na otevřenou lhůtu.</p></div>`
-      : `<div class="hlaska"><strong>Zatím ticho</strong>
-           <p>Hlídač zatím nenašel žádnou vyhlášku o územním plánování.
-              To je dobrá zpráva — když něco přijde, objeví se to tady
-              a zároveň jako issue v repozitáři.</p></div>`;
+      : (JE_NAHLED
+        ? `<div class="hlaska"><strong>Náhled zatím nevznikl</strong>
+             <p>Spusťte workflow „Hlídač úředních desek" s volbou
+                <code>nahled = 1</code> a delším <code>lookback_days</code>.</p></div>`
+        : `<div class="hlaska"><strong>Zatím ticho</strong>
+             <p>Hlídač zatím nenašel žádnou vyhlášku o územním plánování.
+                To je dobrá zpráva — když něco přijde, objeví se to tady
+                a zároveň jako issue v repozitáři.</p></div>`);
     return;
   }
 
@@ -460,7 +531,18 @@ function vykresli() {
   });
 }
 
-fetch(`state/zpravy.json?v=${Date.now()}`)
+// ?zdroj=nahled čte zkušební překlady místo skutečně odeslaných zpráv.
+const JE_NAHLED = new URLSearchParams(location.search).get("zdroj") === "nahled";
+const SOUBOR = JE_NAHLED ? "state/nahled.json" : "state/zpravy.json";
+
+if (JE_NAHLED) {
+  document.getElementById("pruh-nahled").hidden = false;
+  document.title = "Náhled překladů — Roztocká ptydeška";
+  // Filtr na otevřenou lhůtu by v náhledu schoval většinu vzorku, o který jde.
+  document.getElementById("jen-otevrene").closest(".prepinac").hidden = true;
+}
+
+fetch(`${SOUBOR}?v=${Date.now()}`)
   .then(r => {
     if (!r.ok) throw new Error(r.status);
     return r.json();

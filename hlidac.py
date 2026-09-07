@@ -60,6 +60,16 @@ LOOKBACK_DAYS = int(os.environ.get("LOOKBACK_DAYS", "7"))
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 DRY_RUN = os.environ.get("DRY_RUN") == "1"
 
+# Náhledový režim: projde i dokumenty, které už zná, nechá je přeložit
+# a výsledek uloží stranou do state/nahled.json, ze kterého čte stránka
+# na index.html?zdroj=nahled. Nic neodesílá a nesahá na ostrý stav —
+# je to dílna na posuzování kvality překladu, ne druhý hlídač.
+NAHLED = os.environ.get("NAHLED") == "1"
+
+# Strop na počet dokumentů v náhledu. Chrání free tier Gemini před tím,
+# aby roční zpětný pohled spotřeboval denní kvótu.
+NAHLED_MAX = int(os.environ.get("NAHLED_MAX", "25"))
+
 STATE_FILE = pathlib.Path("state/seen.json")
 
 # Dokumenty, na které jsme upozornili holým nálezem, protože edesky nemá
@@ -70,6 +80,10 @@ BEZ_TEXTU_FILE = pathlib.Path("state/bez_textu.json")
 # Archiv odeslaných zpráv. Čte ho index.html, takže formát je zároveň
 # veřejné API stránky — když se do záznamu přidá pole, přidej ho i tam.
 ARCHIV_FILE = pathlib.Path("state/zpravy.json")
+
+# Výstup náhledového režimu. Schválně jiný soubor než archiv: nesmí se stát,
+# že si někdo splete zkušební překlad s tím, co hlídač opravdu poslal.
+NAHLED_FILE = pathlib.Path("state/nahled.json")
 
 # Kolik zpráv v archivu držet. Stránka je čte všechny najednou.
 MAX_ARCHIV = 500
@@ -696,6 +710,51 @@ def zaznam(dok: dict, shrnuti: dict, doruceno: list[str]) -> dict:
 
 # --------------------------------------------------------------------------
 
+def spust_nahled(dokumenty: dict) -> None:
+    """
+    Přeloží nalezené dokumenty a uloží výsledek do state/nahled.json.
+
+    Proti ostrému běhu schválně jinak: nekouká na state/seen.json, takže projde
+    i dokumenty, na které se už upozornilo, a zapíše i ty, které model označil
+    za nerelevantní. Smysl je posoudit kvalitu překladu a chování filtru na
+    víc než jednom vzorku — proto je potřeba vidět i to, co propadlo.
+    """
+    vzorek = list(dokumenty.values())[:NAHLED_MAX]
+    print(f"Náhled: beru {len(vzorek)} z {len(dokumenty)} dokumentů"
+          + (f" (strop NAHLED_MAX={NAHLED_MAX})" if len(dokumenty) > NAHLED_MAX else ""))
+
+    zaznamy = []
+    for i, dok in enumerate(vzorek, 1):
+        print(f"\n[{i}/{len(vzorek)}] → {dok['nazev'][:80]}")
+
+        if not ma_text(dok):
+            print("  (bez rozpoznaného textu, modelu se neptám)")
+            z = zaznam(dok, holy_nalez(dok), [])
+            z["relevantni"] = None       # None = nebylo co posuzovat
+            zaznamy.append(z)
+            continue
+
+        shrnuti = prelozi_do_lidstiny(dok)
+        if shrnuti is None:
+            print("  (nepodařilo se zpracovat)")
+            continue
+
+        diagnostika(dok, shrnuti)
+        z = zaznam(dok, shrnuti, [])
+        z["relevantni"] = bool(shrnuti.get("relevantni"))
+        zaznamy.append(z)
+        print("  " + ("PROŠLO filtrem" if z["relevantni"] else "model zahodil"))
+        time.sleep(4)   # ohled na limity free tieru
+
+    NAHLED_FILE.parent.mkdir(parents=True, exist_ok=True)
+    NAHLED_FILE.write_text(
+        json.dumps(zaznamy, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+    proslo = sum(1 for z in zaznamy if z.get("relevantni"))
+    print(f"\nNáhled hotov: {len(zaznamy)} záznamů, z toho {proslo} prošlo filtrem.")
+    print(f"Zapsáno do {NAHLED_FILE}.")
+
+
 def main() -> int:
     if len(sys.argv) > 2 and sys.argv[1] == "--najdi-desku":
         najdi_desku(sys.argv[2])
@@ -705,6 +764,12 @@ def main() -> int:
         if not os.environ.get(jmeno):
             print(f"Chybí proměnná {jmeno}", file=sys.stderr)
             return 2
+
+    if NAHLED:
+        print(f"Náhledový režim: {LOOKBACK_DAYS} dní zpět, desky "
+              f"{', '.join(DASHBOARDS)}. Nic se neodešle a ostrý stav zůstane.")
+        spust_nahled(stahni_dokumenty())
+        return 0
 
     videne = nacti_stav()
     bez_textu = nacti_bez_textu()
