@@ -32,6 +32,7 @@ import json
 import os
 import pathlib
 import random
+import re
 import sys
 import time
 import urllib.parse
@@ -109,13 +110,42 @@ pole nech prázdná.
 
 Pokud relevantní je, vyplň zbytek. Piš česky, srozumitelně, bez úřednického \
 jazyka, tak aby tomu rozuměl člověk bez právního vzdělání. Nevymýšlej si — co \
-v textu není, nech prázdné. Datum piš ve formátu DD.MM.RRRR.
+v textu není, nech prázdné.
+
+LHŮTY A DATA jsou to nejdůležitější, kvůli čemu tuhle zprávu někdo dostane. \
+Řiď se tímhle:
+
+- Absolutní datum piš ve formátu DD.MM.RRRR.
+- Lhůty v těchhle vyhláškách bývají popsané vztahem k události, ne datem — \
+například „námitky lze podat nejpozději do 7 dnů ode dne veřejného \
+projednání" nebo „do 30 dnů ode dne doručení". Takovou lhůtu opiš přesně tak, \
+jak je v dokumentu. Pole "deadline" NENECHÁVEJ prázdné jen proto, že tam není \
+konkrétní datum.
+- Když je v dokumentu i datum události, od které se lhůta počítá, dopočítej \
+výsledné datum a napiš obojí, třeba: „09.09.2026 (7 dnů od veřejného \
+projednání)".
+- Lhůtu si nikdy nedomýšlej. Když v dokumentu žádná není, nech pole prázdné.
+
+SHRNUTÍ musí být konkrétní. Napiš, co se v území mění a co to znamená pro \
+toho, kdo tam bydlí nebo vlastní pozemek. Vynech obecné věty, které platí o \
+každé vyhlášce — nepiš nic ve smyslu „změna může ovlivnit budoucí podobu a \
+rozvoj lokality" ani „obyvatelé se mohou seznámit a uplatnit připomínky". \
+Když dokument sám neuvádí, co konkrétně se mění, a odkazuje na přílohy, \
+napiš rovnou to.
+
+Dokument byl vyvěšen na úřední desce {vyveseno}.
 
 Text dokumentu:
 ---
 {text}
 ---
 """
+
+# Diagnostika pro dry run. Zajímá nás, jestli model pole minul, nebo v textu
+# opravdu není — vypisujeme jen nalezené vzory, ne text dokumentu, protože
+# log běhu je ve veřejném repozitáři.
+RE_DATUM = re.compile(r"\b\d{1,2}\.\s?\d{1,2}\.\s?\d{4}\b")
+RE_LHUTA = re.compile(r"(?:nejpozději|ve lhůtě|do)\s+\d+\s+(?:dn|kalendářních dn)\w*", re.I)
 
 SCHEMA = {
     "type": "OBJECT",
@@ -142,7 +172,12 @@ SCHEMA = {
         },
         "deadline": {
             "type": "STRING",
-            "description": "Do kdy lze podat námitky nebo připomínky.",
+            "description": (
+                "Do kdy lze podat námitky nebo připomínky. Buď datum DD.MM.RRRR, "
+                "nebo lhůta popsaná vztahem k události tak, jak stojí v dokumentu "
+                "(např. „do 7 dnů ode dne veřejného projednání\"). Prázdné jen "
+                "tehdy, když v dokumentu žádná lhůta není."
+            ),
         },
         "kdo_muze_podat": {
             "type": "STRING",
@@ -150,7 +185,10 @@ SCHEMA = {
         },
         "shrnuti": {
             "type": "STRING",
-            "description": "3 až 5 vět o tom, co se navrhuje a co to znamená.",
+            "description": (
+                "3 až 5 vět o tom, co konkrétně se v území mění a co to znamená "
+                "pro místní. Bez obecných frází, které platí o každé vyhlášce."
+            ),
         },
     },
     "required": ["relevantni", "nadpis", "shrnuti"],
@@ -275,8 +313,9 @@ def prelozi_do_lidstiny(dok: dict) -> dict | None:
         # Nepovedené OCR nebo prázdná příloha — nemá cenu utrácet volání.
         return None
 
+    vyveseno = dok.get("vlozeno", "")[:10] or "neuvedeno"
     payload = {
-        "contents": [{"parts": [{"text": PROMPT.format(text=text)}]}],
+        "contents": [{"parts": [{"text": PROMPT.format(text=text, vyveseno=vyveseno)}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
             "responseSchema": SCHEMA,
@@ -386,6 +425,31 @@ def zprava_md(dok: dict, shrnuti: dict) -> str:
     r.append("")
     r.append(f"*{esc_md(dok['deska'])}, vyvěšeno {esc_md(dok['vlozeno'][:10])}*")
     return "\n".join(r)
+
+
+def diagnostika(dok: dict, shrnuti: dict) -> None:
+    """
+    Vypíše, co je v textu a co z toho model vytáhl. Jen pro dry run.
+
+    Smysl: poznat rozdíl mezi „model to přehlédl" a „v dokumentu to není".
+    Bez toho se prompt ladí naslepo. Vypisují se schválně jen nalezené vzory,
+    ne text dokumentu — log běhu je ve veřejném repozitáři.
+    """
+    text = dok["text"]
+    data = sorted(set(RE_DATUM.findall(text)))
+    lhuty = sorted(set(m.strip() for m in RE_LHUTA.findall(text)))
+
+    print(f"  rozbor: text {len(text)} znaků"
+          + (f", z toho do modelu prvních {MAX_TEXT_CHARS}" if len(text) > MAX_TEXT_CHARS else ""))
+    print(f"          data v textu: {', '.join(data) if data else '(žádné)'}")
+    print(f"          lhůty v textu: {'; '.join(lhuty) if lhuty else '(žádné)'}")
+    print(f"          model vrátil: jednání={shrnuti.get('datum_jednani') or '—'!r}"
+          f" lhůta={shrnuti.get('deadline') or '—'!r}")
+
+    if data and not shrnuti.get("datum_jednani"):
+        print("          ! v textu datum je, ale model žádné nevrátil")
+    if lhuty and not shrnuti.get("deadline"):
+        print("          ! v textu lhůta je, ale model ji nevrátil")
 
 
 def posli(dok: dict, shrnuti: dict) -> list[str]:
@@ -549,6 +613,9 @@ def main() -> int:
         if not shrnuti.get("relevantni"):
             print("  (netýká se územního plánování, přeskakuji)")
             continue
+
+        if DRY_RUN:
+            diagnostika(dok, shrnuti)
 
         doruceno = posli(dok, shrnuti)
         # Nejnovější nahoru, stránka to tak čte bez dalšího řazení.
