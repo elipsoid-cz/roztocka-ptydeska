@@ -94,6 +94,9 @@ DESKA_FILE = pathlib.Path("state/deska.json")
 # dokument, jde na edesky, ne sem.
 DESKA_DNI = int(os.environ.get("DESKA_DNI", "180"))
 
+# Strop na stránkování soupisu (edesky vrací 200 dokumentů na stránku).
+SOUPIS_MAX_STRANEK = 10
+
 # Kolik zpráv v archivu držet. Stránka je čte všechny najednou.
 MAX_ARCHIV = 500
 
@@ -357,9 +360,13 @@ def stahni_soupis_desky() -> list[dict]:
     """
     Holý soupis dokumentů na sledovaných deskách, bez ohledu na klíčová slova.
 
-    Schválně bez `keywords` a bez `include_texts`/`show_texts`: tenhle průchod
-    je jen pro stránku, aby na ní šlo dohledat i to, co hlídač neposlal. Texty
-    by tekly po drátě zbytečně a do modelu z tohohle nejde nic.
+    Dotaz je `keywords=*`, protože parametr je povinný — bez něj edesky vrátí
+    prázdno. Wildcard používá i oficiální ruby klient edesky jako výchozí
+    hodnotu, takže se nespoléháme na nezdokumentované chování.
+
+    Schválně bez `include_texts`/`show_texts`: tenhle průchod je jen pro
+    stránku, aby na ní šlo dohledat i to, co hlídač neposlal. Texty by tekly
+    po drátě zbytečně a do modelu z tohohle nejde nic.
 
     Selhání se nesmí dotknout hlavního běhu — soupis je vedlejší produkt.
     Když ho edesky nedá, vrátíme prázdno a hlídač pokračuje dál.
@@ -368,26 +375,40 @@ def stahni_soupis_desky() -> list[dict]:
     soupis = []
 
     for dashboard_id in DASHBOARDS:
-        try:
-            root = edesky_get(
-                "documents",
-                {"dashboard_id": dashboard_id, "created_from": od, "order": "date"},
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(f"  ! soupis desky {dashboard_id}: {exc}", file=sys.stderr)
-            continue
+        # Stránka má 200 dokumentů. Strop je pojistka proti nekonečné smyčce,
+        # ne očekávaný stav: za týden se na desku tolik dokumentů nedostane.
+        for stranka in range(1, SOUPIS_MAX_STRANEK + 1):
+            try:
+                root = edesky_get(
+                    "documents",
+                    {
+                        "keywords": "*",
+                        "dashboard_id": dashboard_id,
+                        "created_from": od,
+                        "order": "date",
+                        "page": stranka,
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"  ! soupis desky {dashboard_id}: {exc}", file=sys.stderr)
+                break
 
-        for doc in root.iter("document"):
-            url = doc.get("edesky_url")
-            if not url:
-                continue
-            soupis.append({
-                "url": url,
-                "nazev": doc.get("name", "").strip(),
-                "deska": doc.get("dashboard_name", ""),
-                "vlozeno": (doc.get("created_at", "") or "")[:10],
-            })
-        time.sleep(1)
+            na_strance = 0
+            for doc in root.iter("document"):
+                url = doc.get("edesky_url")
+                if not url:
+                    continue
+                na_strance += 1
+                soupis.append({
+                    "url": url,
+                    "nazev": doc.get("name", "").strip(),
+                    "deska": doc.get("dashboard_name", ""),
+                    "vlozeno": (doc.get("created_at", "") or "")[:10],
+                })
+
+            time.sleep(1)  # slušnost vůči cizímu API
+            if na_strance < 200:
+                break
 
     return soupis
 
