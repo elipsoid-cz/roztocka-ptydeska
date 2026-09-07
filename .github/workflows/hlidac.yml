@@ -1,0 +1,72 @@
+name: Hlídač úředních desek
+
+on:
+  schedule:
+    # 05:20 UTC = 07:20 letního / 06:20 zimního času.
+    # Nekulatá minuta schválně: v celou hodinu je fronta GitHubu nejdelší
+    # a spuštění se často opozdí o desítky minut.
+    - cron: "20 5 * * *"
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Kolik dní zpět prohledat"
+        required: false
+        default: "7"
+      dry_run:
+        description: "1 = neukládat stav"
+        required: false
+        default: "0"
+
+permissions:
+  contents: write
+  issues: write   # nálezy se doručují jako issue, e-mail z nich pošle GitHub
+
+concurrency:
+  group: hlidac
+  cancel-in-progress: false
+
+jobs:
+  hlidat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Spustit hlídač
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EDESKY_API_KEY: ${{ secrets.EDESKY_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EDESKY_DASHBOARDS: ${{ vars.EDESKY_DASHBOARDS || '260' }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+        run: python hlidac.py
+
+      - name: Uložit stav
+        if: github.event.inputs.dry_run != '1'
+        run: |
+          git config user.name "hlidac-bot"
+          git config user.email "actions@github.com"
+
+          if [[ -n "$(git status --porcelain state/)" ]]; then
+            git add state/
+            git commit -m "stav: $(date +%Y-%m-%d)"
+          elif [[ $(( $(date +%s) - $(git log -1 --format=%ct) )) -gt 2592000 ]]; then
+            # GitHub vypíná scheduled workflows po 60 dnech bez aktivity
+            # v repozitáři. Stav se commituje jen když se něco najde, takže
+            # v klidnějším období by se hlídač tiše vypnul — přesně před tím,
+            # na co existuje. Po měsíci ticha proto commitneme naprázdno.
+            git commit --allow-empty -m "heartbeat: $(date +%Y-%m-%d)"
+          else
+            echo "Beze změny."
+            exit 0
+          fi
+
+          git push

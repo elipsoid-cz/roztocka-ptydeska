@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roztocká ptydeška — co se chystá s územním plánem</title>
+<meta name="description" content="Vyhlášky o územním plánování z úředních desek, přeložené do srozumitelné češtiny.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,300;1,6..72,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --papir: #f2eee4;
+  --papir-list: #fbf9f4;
+  --inkoust: #17140f;
+  --inkoust-slaby: #6a6154;
+  --linka: #d8d0be;
+  --razitko: #a8321f;
+  --razitko-tlum: #a8321f22;
+  --zelena: #3f6b45;
+  --stin: 0 1px 2px rgba(23,20,15,.06), 0 8px 24px -12px rgba(23,20,15,.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papir: #131211;
+    --papir-list: #1c1a17;
+    --inkoust: #ece6d9;
+    --inkoust-slaby: #9a9184;
+    --linka: #302c26;
+    --razitko: #e2705c;
+    --razitko-tlum: #e2705c1f;
+    --zelena: #7fae83;
+    --stin: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: var(--papir);
+  /* Papírové zrno: jemný šum, ať plocha není mrtvě plochá. */
+  background-image:
+    radial-gradient(circle at 12% 8%, var(--razitko-tlum) 0, transparent 42%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+  color: var(--inkoust);
+  font-family: Newsreader, Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.obal { max-width: 74rem; margin: 0 auto; padding: 0 1.5rem 6rem; }
+
+/* ---------- hlavička ---------- */
+
+header {
+  border-bottom: 3px double var(--linka);
+  padding: 3.5rem 0 1.25rem;
+  margin-bottom: 2.5rem;
+}
+.kicker {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: .68rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--razitko);
+  margin-bottom: 1rem;
+}
+h1 {
+  font-size: clamp(2.6rem, 8vw, 5.2rem);
+  font-weight: 700;
+  line-height: .95;
+  letter-spacing: -.025em;
+  margin: 0 0 .4rem;
+}
+h1 em { font-style: italic; font-weight: 300; color: var(--razitko); }
+.podnadpis {
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-style: italic;
+  color: var(--inkoust-slaby);
+  max-width: 42ch;
+  margin: 0;
+}
+
+/* ---------- ovládání ---------- */
+
+.ovladani {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem 1.25rem;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+input[type=search] {
+  flex: 1 1 16rem;
+  font: 400 .95rem/1.4 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--inkoust);
+  background: transparent;
+  border: 0;
+  border-bottom: 1.5px solid var(--linka);
+  padding: .55rem .2rem;
+  transition: border-color .2s;
+}
+input[type=search]:focus { outline: 0; border-bottom-color: var(--razitko); }
+input[type=search]::placeholder { color: var(--inkoust-slaby); opacity: .8; }
+
+.prepinac {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font: 500 .72rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+  cursor: pointer;
+  user-select: none;
+}
+.prepinac input { accent-color: var(--razitko); width: 1rem; height: 1rem; cursor: pointer; }
+.prepinac:hover { color: var(--inkoust); }
+
+.pocet {
+  font: 500 .72rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+  margin-left: auto;
+}
+
+/* ---------- výpis ---------- */
+
+.vypis { display: grid; gap: 1.5rem; }
+
+article {
+  position: relative;
+  background: var(--papir-list);
+  border: 1px solid var(--linka);
+  border-radius: 2px;
+  box-shadow: var(--stin);
+  padding: 1.75rem 1.75rem 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  animation: prichod .5s cubic-bezier(.2,.7,.3,1) backwards;
+}
+@media (min-width: 56rem) {
+  article { grid-template-columns: 1fr 15rem; padding: 2rem 2.25rem 1.75rem; }
+}
+@keyframes prichod { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { article { animation: none; } }
+
+/* Barevný pruh u hrany podle naléhavosti. */
+article::before {
+  content: "";
+  position: absolute;
+  inset: -1px auto -1px -1px;
+  width: 4px;
+  background: var(--linka);
+  border-radius: 2px 0 0 2px;
+}
+article.bezi::before { background: var(--razitko); }
+article.probehlo { opacity: .72; }
+
+h2 {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -.015em;
+  margin: 0 0 .75rem;
+  text-wrap: balance;
+}
+.lokalita {
+  font: 500 .72rem/1.4 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--razitko);
+  margin: 0 0 .9rem;
+}
+.shrnuti { margin: 0 0 1.1rem; max-width: 62ch; }
+
+.puvod {
+  font: 400 .74rem/1.5 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--inkoust-slaby);
+  padding-top: .9rem;
+  border-top: 1px solid var(--linka);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1.1rem;
+}
+.puvod a { color: var(--inkoust-slaby); text-decoration-color: var(--linka); text-underline-offset: 3px; }
+.puvod a:hover { color: var(--razitko); text-decoration-color: currentColor; }
+
+/* ---------- postranní údaje ---------- */
+
+.udaje {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: .78rem;
+  line-height: 1.5;
+  display: grid;
+  gap: 1.1rem;
+  align-content: start;
+}
+@media (min-width: 56rem) {
+  .udaje { border-left: 1px solid var(--linka); padding-left: 1.75rem; }
+}
+.udaj dt {
+  font-size: .62rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+  margin-bottom: .3rem;
+}
+.udaj dd { margin: 0; font-weight: 500; }
+
+.lhuta { font-weight: 700; font-size: .95rem; }
+.lhuta.bezi { color: var(--razitko); }
+.lhuta.probehlo { color: var(--inkoust-slaby); font-weight: 400; text-decoration: line-through; }
+.zbyva {
+  display: inline-block;
+  margin-top: .35rem;
+  padding: .2rem .5rem;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font-size: .62rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--razitko);
+}
+
+.stav-doruceni {
+  font-size: .62rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+}
+.stav-doruceni b { color: var(--zelena); font-weight: 500; }
+
+/* ---------- prázdné a chybové stavy ---------- */
+
+.hlaska {
+  border: 1px dashed var(--linka);
+  border-radius: 2px;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  color: var(--inkoust-slaby);
+}
+.hlaska strong {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--inkoust);
+  margin-bottom: .6rem;
+}
+.hlaska p { margin: 0 auto; max-width: 46ch; font-size: .95rem; }
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--linka);
+  font: 400 .78rem/1.7 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--inkoust-slaby);
+}
+footer a { color: inherit; text-underline-offset: 3px; }
+footer a:hover { color: var(--razitko); }
+footer p { max-width: 60ch; margin: 0 0 .8rem; }
+</style>
+</head>
+<body>
+<div class="obal">
+
+<header>
+  <div class="kicker">Roztoky u Prahy · úřední deska</div>
+  <h1>Roztocká<br><em>ptydeška</em></h1>
+  <p class="podnadpis">Vyhlášky o územním plánování, vytažené z úřední desky
+    a přeložené z ptydepe do češtiny.</p>
+</header>
+
+<div class="ovladani">
+  <input type="search" id="hledat" placeholder="hledat v lokalitách a shrnutích…" autocomplete="off">
+  <label class="prepinac">
+    <input type="checkbox" id="jen-otevrene"> jen s otevřenou lhůtou
+  </label>
+  <div class="pocet" id="pocet"></div>
+</div>
+
+<main class="vypis" id="vypis">
+  <div class="hlaska"><strong>Načítám…</strong></div>
+</main>
+
+<footer>
+  <p>Hlídač prochází úřední desky přes <a href="https://edesky.cz">edesky.cz</a>,
+    vyhlášky o územním plánování nechá shrnout jazykovým modelem a zapíše sem.
+    Shrnutí píše stroj — <strong>závazné je vždycky znění na úřední desce</strong>,
+    proto je u každé položky odkaz na originál.</p>
+  <p>Lhůty běží od data vyvěšení, ne od načtení na edesky. Není to náhrada za
+    sledování úřední desky, je to pojistka.</p>
+  <p id="aktualizace"></p>
+</footer>
+
+</div>
+
+<script>
+const VYPIS = document.getElementById("vypis");
+const POCET = document.getElementById("pocet");
+const HLEDAT = document.getElementById("hledat");
+const JEN_OTEVRENE = document.getElementById("jen-otevrene");
+
+let zpravy = [];
+
+/** "21.10.2026" nebo "14.10.2026 v 17:00" → Date, nebo null. */
+function nactiDatum(s) {
+  const m = (s || "").match(/(\d{1,2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{4})/);
+  if (!m) return null;
+  const d = new Date(+m[3], +m[2] - 1, +m[1]);
+  return isNaN(d) ? null : d;
+}
+
+/** Kolik dní zbývá do konce daného dne. Záporné = už uplynulo. */
+function zbyvaDni(datum) {
+  const dnes = new Date();
+  dnes.setHours(0, 0, 0, 0);
+  return Math.round((datum - dnes) / 86400000);
+}
+
+function sklonujDny(n) {
+  if (n === 1) return "zbývá 1 den";
+  if (n >= 2 && n <= 4) return `zbývají ${n} dny`;
+  return `zbývá ${n} dnů`;
+}
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s ?? "";
+  return d.innerHTML;
+}
+
+function polozka(z) {
+  const lhuta = nactiDatum(z.deadline);
+  const jednani = nactiDatum(z.datum_jednani);
+  // Naléhavost řídí lhůta pro námitky; když není, aspoň datum projednání.
+  const rozhodne = lhuta || jednani;
+  const dni = rozhodne ? zbyvaDni(rozhodne) : null;
+  const bezi = dni !== null && dni >= 0;
+  const probehlo = dni !== null && dni < 0;
+
+  const el = document.createElement("article");
+  el.className = bezi ? "bezi" : (probehlo ? "probehlo" : "");
+
+  const udaje = [];
+  if (z.datum_jednani) {
+    udaje.push(`<div class="udaj"><dt>Veřejné projednání</dt><dd>${esc(z.datum_jednani)}${
+      z.misto_jednani ? `<br><span style="font-weight:400">${esc(z.misto_jednani)}</span>` : ""
+    }</dd></div>`);
+  }
+  if (z.deadline) {
+    const trida = bezi ? "bezi" : (probehlo ? "probehlo" : "");
+    udaje.push(`<div class="udaj"><dt>Námitky a připomínky do</dt>
+      <dd class="lhuta ${trida}">${esc(z.deadline)}</dd>${
+        bezi ? `<span class="zbyva">${dni === 0 ? "dnes je poslední den" : sklonujDny(dni)}</span>`
+             : (probehlo ? `<span class="stav-doruceni">lhůta uplynula</span>` : "")
+      }</div>`);
+  }
+  if (z.kdo_muze_podat) {
+    udaje.push(`<div class="udaj"><dt>Kdo může podat</dt><dd style="font-weight:400">${esc(z.kdo_muze_podat)}</dd></div>`);
+  }
+  udaje.push(`<div class="udaj"><dt>Doručeno</dt><dd class="stav-doruceni">${
+    z.doruceno && z.doruceno.length
+      ? `<b>${z.doruceno.map(esc).join(", ")}</b>`
+      : "jen zaznamenáno"
+  }</dd></div>`);
+
+  el.innerHTML = `
+    <div>
+      ${z.lokalita ? `<p class="lokalita">${esc(z.lokalita)}</p>` : ""}
+      <h2>${esc(z.nadpis)}</h2>
+      <p class="shrnuti">${esc(z.shrnuti)}</p>
+      <div class="puvod">
+        <span>${esc(z.deska)}, vyvěšeno ${esc(z.vlozeno)}</span>
+        <a href="${esc(z.url)}">dokument na edesky ↗</a>
+        ${z.orig_url ? `<a href="${esc(z.orig_url)}">originál na úřední desce ↗</a>` : ""}
+      </div>
+    </div>
+    <dl class="udaje">${udaje.join("")}</dl>`;
+  return el;
+}
+
+function vykresli() {
+  const dotaz = HLEDAT.value.trim().toLowerCase();
+  const jenOtevrene = JEN_OTEVRENE.checked;
+
+  const videt = zpravy.filter(z => {
+    if (dotaz) {
+      const seno = [z.nadpis, z.lokalita, z.shrnuti, z.nazev_dokumentu, z.deska]
+        .join(" ").toLowerCase();
+      if (!seno.includes(dotaz)) return false;
+    }
+    if (jenOtevrene) {
+      const d = nactiDatum(z.deadline) || nactiDatum(z.datum_jednani);
+      if (!d || zbyvaDni(d) < 0) return false;
+    }
+    return true;
+  });
+
+  POCET.textContent = zpravy.length
+    ? `${videt.length} z ${zpravy.length} ${zpravy.length === 1 ? "záznamu" : "záznamů"}`
+    : "";
+
+  VYPIS.innerHTML = "";
+  if (!videt.length) {
+    VYPIS.innerHTML = zpravy.length
+      ? `<div class="hlaska"><strong>Nic neodpovídá</strong>
+           <p>Zkuste kratší výraz nebo vypněte filtr na otevřenou lhůtu.</p></div>`
+      : `<div class="hlaska"><strong>Zatím ticho</strong>
+           <p>Hlídač zatím nenašel žádnou vyhlášku o územním plánování.
+              To je dobrá zpráva — když něco přijde, objeví se to tady
+              a zároveň jako issue v repozitáři.</p></div>`;
+    return;
+  }
+
+  videt.forEach((z, i) => {
+    const el = polozka(z);
+    el.style.animationDelay = `${Math.min(i * 55, 440)}ms`;
+    VYPIS.appendChild(el);
+  });
+}
+
+fetch(`state/zpravy.json?v=${Date.now()}`)
+  .then(r => {
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  })
+  .then(data => {
+    zpravy = Array.isArray(data) ? data : [];
+    vykresli();
+    const posledni = zpravy[0] && zpravy[0].cas;
+    if (posledni) {
+      document.getElementById("aktualizace").textContent =
+        "Poslední záznam: " + new Date(posledni).toLocaleString("cs-CZ");
+    }
+  })
+  .catch(() => {
+    // Před prvním ostrým během soubor ještě neexistuje — to není chyba.
+    zpravy = [];
+    vykresli();
+  });
+
+HLEDAT.addEventListener("input", vykresli);
+JEN_OTEVRENE.addEventListener("change", vykresli);
+</script>
+</body>
+</html>
