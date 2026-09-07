@@ -62,12 +62,23 @@ DRY_RUN = os.environ.get("DRY_RUN") == "1"
 
 STATE_FILE = pathlib.Path("state/seen.json")
 
+# Dokumenty, na které jsme upozornili holým nálezem, protože edesky nemá
+# rozpoznaný text. Schválně mimo seen.json: až text přibude, chceme je
+# zpracovat pořádně a poslat znovu i se shrnutím.
+BEZ_TEXTU_FILE = pathlib.Path("state/bez_textu.json")
+
 # Archiv odeslaných zpráv. Čte ho index.html, takže formát je zároveň
 # veřejné API stránky — když se do záznamu přidá pole, přidej ho i tam.
 ARCHIV_FILE = pathlib.Path("state/zpravy.json")
 
 # Kolik zpráv v archivu držet. Stránka je čte všechny najednou.
 MAX_ARCHIV = 500
+
+# Kolik znaků vlastního textu dokumentu musí být k dispozici, aby mělo smysl
+# ptát se modelu na shrnutí. Pod tím edesky nemá rozpoznaný text (naskenované
+# PDF bez OCR, nebo ho ještě nestihlo zpracovat) a model by shrnutí vymyslel
+# ze samotného názvu — což se přesně jednou stalo a je to horší než mlčet.
+MIN_TEXT_CHARS = 200
 
 # Kolik znaků textu dokumentu posílat do modelu.
 # Záměrně málo: podstatné (co, kde, kdy, do kdy) bývá na první stránce,
@@ -93,6 +104,20 @@ KEYWORDS = [
     "Tiché údolí",
     "Žalov",
 ]
+
+# Výrazy, které samotné v názvu dokumentu stačí na upozornění, i když k němu
+# nemáme text. Schválně užší než KEYWORDS — chybí „opatření obecné povahy"
+# a názvy lokalit, pod které spadne i uzavírka silnice. Bez textu totiž nemá
+# kdo posoudit relevanci a falešný poplach je tu dražší než jinde.
+RE_SILNE = re.compile(
+    r"regulačn\w*\s+plán\w*"
+    r"|územn\w*\s+plán\w*"
+    r"|územn\w*\s+studi\w*"
+    r"|stavebn\w*\s+uzávě[rř]\w*"   # pozor: „o stavební uzávěře" je s ř
+    r"|veřejn\w*\s+projednán\w*"
+    r"|společn\w*\s+jednán\w*",
+    re.IGNORECASE,
+)
 
 PROMPT = """Jsi asistent, který pomáhá obyvatelům města porozumět úředním \
 vyhláškám o územním plánování.
@@ -266,6 +291,12 @@ def stahni_dokumenty() -> dict:
                     "vlozeno": doc.get("created_at", ""),
                     "orig_url": platne_url(doc.get("orig_url", "")),
                     "text": vytahni_text(doc),
+                    # Jen pro diagnostiku: kolik příloh dokument má a u kolika
+                    # z nich edesky hlásí rozpoznaný text.
+                    "prilohy": len(list(doc.iter("attachment"))),
+                    "prilohy_s_textem": sum(
+                        1 for a in doc.iter("attachment") if a.get("contains_text") == "1"
+                    ),
                 }
             time.sleep(1)  # slušnost vůči cizímu API
 
@@ -306,12 +337,43 @@ def vytahni_text(doc: ET.Element) -> str:
 # Gemini
 # --------------------------------------------------------------------------
 
+def ma_text(dok: dict) -> bool:
+    """Má dokument dost vlastního textu, aby šlo shrnutí opřít o obsah?"""
+    return len(dok["text"].strip()) >= MIN_TEXT_CHARS
+
+
+def stoji_za_upozorneni_bez_textu(dok: dict) -> bool:
+    """
+    Rozhodne o dokumentu, ke kterému nemáme text, jen podle názvu.
+
+    Model se neptáme schválně: z holého názvu by relevanci hádal a hádání
+    plodí falešné poplachy. Radši úzký deterministický filtr.
+    """
+    return bool(RE_SILNE.search(dok["nazev"]))
+
+
+def holy_nalez(dok: dict) -> dict:
+    """
+    Náhrada za shrnutí u dokumentu bez rozpoznaného textu.
+
+    Vědomě neobsahuje nic, co by se dalo splést se shrnutím obsahu — jen
+    konstatování, že text není, a pobídku otevřít originál.
+    """
+    return {
+        "relevantni": True,
+        "nadpis": dok["nazev"],
+        "shrnuti": (
+            "edesky u tohoto dokumentu zatím nemá rozpoznaný text, takže shrnutí "
+            "neexistuje a nechci si ho domýšlet. Otevřete prosím originál. "
+            "Až text přibude, pošlu zprávu znovu i se shrnutím."
+        ),
+        "bez_textu": True,
+    }
+
+
 def prelozi_do_lidstiny(dok: dict) -> dict | None:
     """Pošle text do Gemini a vrátí strukturované shrnutí, nebo None."""
     text = (dok["nazev"] + "\n\n" + dok["text"])[:MAX_TEXT_CHARS]
-    if len(text.strip()) < 50:
-        # Nepovedené OCR nebo prázdná příloha — nemá cenu utrácet volání.
-        return None
 
     vyveseno = dok.get("vlozeno", "")[:10] or "neuvedeno"
     payload = {
@@ -440,12 +502,18 @@ def diagnostika(dok: dict, shrnuti: dict) -> None:
     lhuty = sorted(set(m.strip() for m in RE_LHUTA.findall(text)))
 
     print(f"  rozbor: text {len(text)} znaků"
-          + (f", z toho do modelu prvních {MAX_TEXT_CHARS}" if len(text) > MAX_TEXT_CHARS else ""))
+          f", příloh {dok.get('prilohy', '?')}"
+          f", z toho s rozpoznaným textem {dok.get('prilohy_s_textem', '?')}"
+          + (f", do modelu jde prvních {MAX_TEXT_CHARS}" if len(text) > MAX_TEXT_CHARS else ""))
     print(f"          data v textu: {', '.join(data) if data else '(žádné)'}")
     print(f"          lhůty v textu: {'; '.join(lhuty) if lhuty else '(žádné)'}")
+
+    if not shrnuti:
+        print("          modelu jsme se neptali (pod MIN_TEXT_CHARS)")
+        return
+
     print(f"          model vrátil: jednání={shrnuti.get('datum_jednani') or '—'!r}"
           f" lhůta={shrnuti.get('deadline') or '—'!r}")
-
     if data and not shrnuti.get("datum_jednani"):
         print("          ! v textu datum je, ale model žádné nevrátil")
     if lhuty and not shrnuti.get("deadline"):
@@ -541,6 +609,22 @@ def uloz_stav(videne: set) -> None:
     )
 
 
+def nacti_bez_textu() -> set:
+    if BEZ_TEXTU_FILE.exists():
+        return set(json.loads(BEZ_TEXTU_FILE.read_text(encoding="utf-8")))
+    return set()
+
+
+def uloz_bez_textu(cekajici: set) -> None:
+    if DRY_RUN:
+        return
+    BEZ_TEXTU_FILE.parent.mkdir(parents=True, exist_ok=True)
+    BEZ_TEXTU_FILE.write_text(
+        json.dumps(sorted(cekajici)[-500:], ensure_ascii=False, indent=1),
+        encoding="utf-8",
+    )
+
+
 def nacti_archiv() -> list:
     if ARCHIV_FILE.exists():
         return json.loads(ARCHIV_FILE.read_text(encoding="utf-8"))
@@ -574,6 +658,7 @@ def zaznam(dok: dict, shrnuti: dict, doruceno: list[str]) -> dict:
         "url": dok["url"],
         "orig_url": dok.get("orig_url", ""),
         "doruceno": doruceno,
+        "bez_textu": bool(shrnuti.get("bez_textu")),
     }
 
 
@@ -590,9 +675,12 @@ def main() -> int:
             return 2
 
     videne = nacti_stav()
+    bez_textu = nacti_bez_textu()
     archiv = nacti_archiv()
     print(f"Znám {len(videne)} dokumentů, dívám se {LOOKBACK_DAYS} dní zpět "
           f"na desky {', '.join(DASHBOARDS)}.")
+    if bez_textu:
+        print(f"{len(bez_textu)} dokumentů čeká, až u nich edesky rozpozná text.")
     if DRY_RUN:
         print("Dry run: stav ani archiv se neuloží a nic se neodešle.")
 
@@ -603,6 +691,27 @@ def main() -> int:
     poslano = 0
     for url, dok in nove.items():
         print(f"\n→ {dok['nazev'][:80]}")
+
+        if not ma_text(dok):
+            # Bez textu se neptáme modelu — vymyslel by shrnutí z názvu.
+            if DRY_RUN:
+                diagnostika(dok, {})
+            if url in bez_textu:
+                print("  (pořád bez textu, na holý nález jsem už upozornil)")
+                continue
+            if not stoji_za_upozorneni_bez_textu(dok):
+                print("  (bez textu a název nenapovídá územnímu plánování, "
+                      "přeskakuji)")
+                continue
+            print("  ! bez rozpoznaného textu, posílám holý nález")
+            shrnuti = holy_nalez(dok)
+            doruceno = posli(dok, shrnuti)
+            archiv.insert(0, zaznam(dok, shrnuti, doruceno))
+            bez_textu.add(url)   # do videne schválně ne, ať se vrátíme s textem
+            poslano += 1
+            time.sleep(5)
+            continue
+
         shrnuti = prelozi_do_lidstiny(dok)
         videne.add(url)
 
@@ -610,12 +719,17 @@ def main() -> int:
             print("  (nepodařilo se zpracovat, příště se na něj podívám znovu)")
             videne.discard(url)
             continue
-        if not shrnuti.get("relevantni"):
-            print("  (netýká se územního plánování, přeskakuji)")
-            continue
 
         if DRY_RUN:
             diagnostika(dok, shrnuti)
+
+        if not shrnuti.get("relevantni"):
+            print("  (netýká se územního plánování, přeskakuji)")
+            bez_textu.discard(url)
+            continue
+
+        # Text dorazil až teď, takže tenhle dokument už nečeká na OCR.
+        bez_textu.discard(url)
 
         doruceno = posli(dok, shrnuti)
         # Nejnovější nahoru, stránka to tak čte bez dalšího řazení.
@@ -624,6 +738,7 @@ def main() -> int:
         time.sleep(5)  # ať se nepereme s limitem free tieru
 
     uloz_stav(videne)
+    uloz_bez_textu(bez_textu)
     uloz_archiv(archiv)
     print(f"\nHotovo. Zpráv k odeslání: {poslano}.")
     return 0

@@ -85,6 +85,25 @@ zapnout placený tier, ne zvednout limit.
 **Když se dokument nepodaří zpracovat, nezapisuje se mezi viděné.** Ať se na něj
 příště podívá znovu. Radši dvě zprávy než žádná.
 
+**Bez textu se model neptáme na shrnutí.** edesky u části dokumentů nemá
+rozpoznaný text — naskenované PDF bez OCR, nebo ho ještě nestihlo zpracovat.
+Dřív se v takovém případě do modelu poslal samotný název a model si shrnutí
+vymyslel; u vyhlášky o RP Solníky vznikly věty o „stavebních a prostorových
+regulativech", které v žádném dokumentu nebyly. Proto `MIN_TEXT_CHARS`: pod tím
+se posílá holý nález s odkazem a s přiznáním, že shrnutí není. Vymyšlené
+shrnutí je horší než žádné — celý smysl nástroje stojí na tom, že se tomu, co
+pošle, dá věřit.
+
+**Dokument bez textu se drží v `state/bez_textu.json`, ne v `seen.json`.**
+Upozorní se na něj jednou holým nálezem, ale zůstane ve frontě, takže až u něj
+edesky text rozpozná, projde modelem a přijde znovu i se shrnutím. Kdyby se
+zapsal mezi viděné, propásli bychom obsah natrvalo.
+
+**O relevanci dokumentu bez textu rozhoduje `RE_SILNE`, ne model.** Z holého
+názvu by model relevanci hádal. Regex je užší než `KEYWORDS` schválně —
+nejsou v něm „opatření obecné povahy" ani názvy lokalit. Pozor na skloňování:
+„o stavební uzávěř**e**" je s ř, ne s r.
+
 **Relevanci posuzuje model, ne jen klíčová slova.** Fulltext vytáhne pod
 „opatření obecné povahy" i dopravní uzavírky, kterých je na desce spousta.
 Filtr přes pole `relevantni` je to, co drží počet notifikací nízko.

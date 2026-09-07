@@ -177,6 +177,21 @@ h2 {
   margin: 0 0 .9rem;
 }
 .shrnuti { margin: 0 0 1.1rem; max-width: 62ch; }
+article.bez-textu .shrnuti { font-style: italic; color: var(--inkoust-slaby); }
+
+/* Nález bez rozpoznaného textu: musí být na první pohled poznat, že tohle
+   není shrnutí obsahu, ale konstatování, že obsah nemáme. */
+.stitek-bez-textu {
+  display: inline-block;
+  margin-bottom: .9rem;
+  padding: .25rem .6rem;
+  border: 1px dashed var(--inkoust-slaby);
+  border-radius: 2px;
+  font: 500 .62rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--inkoust-slaby);
+}
 
 .puvod {
   font: 400 .74rem/1.5 "JetBrains Mono", ui-monospace, monospace;
@@ -358,7 +373,10 @@ function polozka(z) {
   const probehlo = dni !== null && dni < 0;
 
   const el = document.createElement("article");
-  el.className = bezi ? "bezi" : (probehlo ? "probehlo" : "");
+  el.className = [
+    bezi ? "bezi" : (probehlo ? "probehlo" : ""),
+    z.bez_textu ? "bez-textu" : "",
+  ].filter(Boolean).join(" ");
 
   const udaje = [];
   if (z.datum_jednani) {
@@ -390,6 +408,7 @@ function polozka(z) {
     <div>
       ${z.lokalita ? `<p class="lokalita">${esc(z.lokalita)}</p>` : ""}
       <h2>${esc(z.nadpis)}</h2>
+      ${z.bez_textu ? `<span class="stitek-bez-textu">bez rozpoznaného textu — shrnutí chybí</span>` : ""}
       <p class="shrnuti">${esc(z.shrnuti)}</p>
       <div class="puvod">
         <span>${esc(z.deska)}, vyvěšeno ${esc(z.vlozeno)}</span>
