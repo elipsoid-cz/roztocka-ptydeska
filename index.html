@@ -329,10 +329,23 @@ function sklonujDny(n) {
   return `zbývá ${n} dnů`;
 }
 
+/**
+ * Escapuje i uvozovky, protože se to vkládá i do atributů.
+ * Texty i adresy pocházejí z cizích webů přes edesky — jsou to data,
+ * ne kód, a nesmí umět vylézt z atributu ven.
+ */
 function esc(s) {
-  const d = document.createElement("div");
-  d.textContent = s ?? "";
-  return d.innerHTML;
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Do href pustíme jen http(s). Zbytek (javascript:, data:, poznámky úřadu) ne. */
+function bezpecnaUrl(u) {
+  return /^https?:\/\//i.test(String(u ?? "").trim()) ? esc(u.trim()) : "";
 }
 
 function polozka(z) {
@@ -370,6 +383,9 @@ function polozka(z) {
       : "jen zaznamenáno"
   }</dd></div>`);
 
+  const odkazEdesky = bezpecnaUrl(z.url);
+  const odkazOriginal = bezpecnaUrl(z.orig_url);
+
   el.innerHTML = `
     <div>
       ${z.lokalita ? `<p class="lokalita">${esc(z.lokalita)}</p>` : ""}
@@ -377,8 +393,8 @@ function polozka(z) {
       <p class="shrnuti">${esc(z.shrnuti)}</p>
       <div class="puvod">
         <span>${esc(z.deska)}, vyvěšeno ${esc(z.vlozeno)}</span>
-        <a href="${esc(z.url)}">dokument na edesky ↗</a>
-        ${z.orig_url ? `<a href="${esc(z.orig_url)}">originál na úřední desce ↗</a>` : ""}
+        ${odkazEdesky ? `<a href="${odkazEdesky}" rel="noopener nofollow">dokument na edesky ↗</a>` : ""}
+        ${odkazOriginal ? `<a href="${odkazOriginal}" rel="noopener nofollow">originál na úřední desce ↗</a>` : ""}
       </div>
     </div>
     <dl class="udaje">${udaje.join("")}</dl>`;

@@ -226,12 +226,25 @@ def stahni_dokumenty() -> dict:
                     "nazev": doc.get("name", "").strip(),
                     "deska": doc.get("dashboard_name", ""),
                     "vlozeno": doc.get("created_at", ""),
-                    "orig_url": doc.get("orig_url", ""),
+                    "orig_url": platne_url(doc.get("orig_url", "")),
                     "text": vytahni_text(doc),
                 }
             time.sleep(1)  # slušnost vůči cizímu API
 
     return nalezene
+
+
+def platne_url(u: str) -> str:
+    """
+    Vrátí adresu, jen když je to opravdu http(s) odkaz, jinak prázdný řetězec.
+
+    edesky přebírá orig_url z webů úřadů a občas tam místo adresy přistane
+    poznámka správce — viděli jsme "#_pokud-potrebujete-kontaktujte_...#".
+    Takový řetězec nemá co dělat v odkazu: ve zprávě je z něj rozbitý link
+    a na stránce je to cizí text vkládaný do href.
+    """
+    u = (u or "").strip()
+    return u if u.lower().startswith(("http://", "https://")) else ""
 
 
 def vytahni_text(doc: ET.Element) -> str:
