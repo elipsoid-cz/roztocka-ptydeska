@@ -24,6 +24,10 @@ on:
         description: "ID desek pro tenhle běh, prázdné = podle proměnné"
         required: false
         default: ""
+      deska_dni:
+        description: "Kolik dní zpět stáhnout soupis desky (jen pro stránku)"
+        required: false
+        default: "30"
 
 permissions:
   contents: write
@@ -56,6 +60,7 @@ jobs:
           LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
           NAHLED: ${{ github.event.inputs.nahled || '0' }}
+          DESKA_STAHOVAT_DNI: ${{ github.event.inputs.deska_dni || '30' }}
         run: python hlidac.py
 
       - name: Uložit náhled

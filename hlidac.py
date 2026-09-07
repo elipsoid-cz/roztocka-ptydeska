@@ -90,9 +90,15 @@ NAHLED_FILE = pathlib.Path("state/nahled.json")
 # co hlídač neposlal. Do modelu z něj nejde nic.
 DESKA_FILE = pathlib.Path("state/deska.json")
 
-# Jak dlouho ten soupis držet. Delší paměť nemá cenu: kdo hledá loňský
-# dokument, jde na edesky, ne sem.
-DESKA_DNI = int(os.environ.get("DESKA_DNI", "180"))
+# Jak hluboko do minulosti soupis stahovat. Schválně nezávisle na
+# LOOKBACK_DAYS: nálezy stačí hledat za posledních pár dní, ale soupis má
+# na stránce dávat souvislost i o kus zpátky. Starší záznamy v souboru
+# zůstávají, každý běh je jen doplní.
+DESKA_STAHOVAT_DNI = int(os.environ.get("DESKA_STAHOVAT_DNI", "30"))
+
+# Jak dlouho záznamy v soupisu držet. Delší paměť nemá cenu: kdo hledá
+# loňský dokument, jde na edesky, ne sem.
+DESKA_DRZET_DNI = int(os.environ.get("DESKA_DRZET_DNI", "180"))
 
 # Strop na stránkování soupisu (edesky vrací 200 dokumentů na stránku).
 SOUPIS_MAX_STRANEK = 10
@@ -371,7 +377,7 @@ def stahni_soupis_desky() -> list[dict]:
     Selhání se nesmí dotknout hlavního běhu — soupis je vedlejší produkt.
     Když ho edesky nedá, vrátíme prázdno a hlídač pokračuje dál.
     """
-    od = (date.today() - timedelta(days=LOOKBACK_DAYS)).isoformat()
+    od = (date.today() - timedelta(days=DESKA_STAHOVAT_DNI)).isoformat()
     soupis = []
 
     for dashboard_id in DASHBOARDS:
@@ -432,7 +438,7 @@ def uloz_soupis(novy: list[dict]) -> int:
     for z in novy:
         stary[z["url"]] = z
 
-    mez = (date.today() - timedelta(days=DESKA_DNI)).isoformat()
+    mez = (date.today() - timedelta(days=DESKA_DRZET_DNI)).isoformat()
     vse = sorted(
         (z for z in stary.values() if z.get("vlozeno", "") >= mez),
         key=lambda z: (z.get("vlozeno", ""), z.get("nazev", "")),
