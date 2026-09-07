@@ -75,9 +75,11 @@ Posílají se `include_texts=1` i `show_texts=1`. Dokumentace uvádí první,
 server si v `requested_params` echuje druhý — a se samotným `include_texts`
 chodily přílohy prázdné, přestože u nich edesky hlásilo `contains_text='1'`.
 Ani jeden z nich neodstraňovat.
-edesky je za bot ochranou Anubis, druhé HTTP volání na stažení textu je zbytečné
-riziko. Když API vrátí místo XML něco jiného, `edesky_get()` to pozná a vyhodí
-srozumitelnou chybu — tuhle kontrolu neodstraňovat.
+
+Text se nestahuje zvlášť z `edesky_text_url`, protože edesky je za bot ochranou
+Anubis a druhé HTTP volání je zbytečné riziko. Když API vrátí místo XML něco
+jiného, `edesky_get()` to pozná a vyhodí srozumitelnou chybu — tuhle kontrolu
+neodstraňovat.
 
 **`MAX_TEXT_CHARS` je nastaveno nízko schválně.** Free tier Gemini si smí
 odeslaný obsah použít ke zlepšování svých produktů. Vyhlášky obsahují v části
