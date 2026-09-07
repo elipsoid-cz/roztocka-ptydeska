@@ -461,9 +461,36 @@ def nadpis(dok: dict, shrnuti: dict) -> str:
     return shrnuti.get("nadpis") or dok["nazev"]
 
 
-def casti(shrnuti: dict) -> list[tuple[str, str, bool]]:
+# Den a měsíc ze začátku data, ať je z „04.09.2026 v 15:00" krátké „4. 9.".
+RE_DEN_MESIC = re.compile(r"\b(\d{1,2})\s*\.\s*(\d{1,2})\s*\.")
+
+
+def titulek(dok: dict, shrnuti: dict) -> str:
     """
-    Rozpadne zprávu na řádky (emoji, text, tučně).
+    Nadpis issue, a tím i předmět e-mailu, který z něj GitHub rozešle.
+
+    Předmět je jediné, co člověk uvidí v přehledu schránky, a ze samotného
+    názvu vyhlášky se nepozná, jestli se to má stihnout tenhle týden, nebo
+    za měsíc. Datum projednání proto jde dopředu. Když ho model nevrátil
+    nebo mu nerozumíme, zůstane holý nadpis — vymýšlet si datum nebudeme.
+    """
+    t = nadpis(dok, shrnuti)
+    m = RE_DEN_MESIC.search(shrnuti.get("datum_jednani") or "")
+    return f"Projednání {int(m[1])}. {int(m[2])}. — {t}" if m else t
+
+
+# Důraz řádku ve zprávě. NADPIS je vyhrazený datu veřejného projednání.
+BEZNE, TUCNE, NADPIS = 0, 1, 2
+
+
+def casti(shrnuti: dict) -> list[tuple[str, str, int]]:
+    """
+    Rozpadne zprávu na řádky (emoji, text, důraz).
+
+    Datum veřejného projednání jde první a jako nadpis. Je to jediný údaj,
+    který má podobu události — dá se na ni přijít a mluvit tam, a dá se
+    zapsat do kalendáře. Lhůta pro připomínky je z něj odvozená a nastává
+    až potom, takže stojí hned pod ním, ale slabší.
 
     Renderery níž z toho složí HTML pro Telegram nebo Markdown pro issue.
     Díky společnému základu se obě podoby nerozejdou, až se bude přidávat
@@ -471,15 +498,15 @@ def casti(shrnuti: dict) -> list[tuple[str, str, bool]]:
     """
     r = []
     if shrnuti.get("lokalita"):
-        r.append(("📍", shrnuti["lokalita"], False))
+        r.append(("📍", shrnuti["lokalita"], BEZNE))
     if shrnuti.get("datum_jednani"):
-        misto = shrnuti.get("misto_jednani")
-        text = f"Projednání: {shrnuti['datum_jednani']}" + (f", {misto}" if misto else "")
-        r.append(("🗓", text, True))
+        r.append(("🗓", f"Veřejné projednání {shrnuti['datum_jednani']}", NADPIS))
+        if shrnuti.get("misto_jednani"):
+            r.append(("🏛", shrnuti["misto_jednani"], BEZNE))
     if shrnuti.get("deadline"):
-        r.append(("⏳", f"Námitky do: {shrnuti['deadline']}", True))
+        r.append(("⏳", f"Připomínky a námitky do: {shrnuti['deadline']}", TUCNE))
     if shrnuti.get("kdo_muze_podat"):
-        r.append(("👤", shrnuti["kdo_muze_podat"], False))
+        r.append(("👤", shrnuti["kdo_muze_podat"], BEZNE))
     return r
 
 
@@ -497,9 +524,10 @@ def esc_md(s: str) -> str:
 def zprava_html(dok: dict, shrnuti: dict) -> str:
     """Podoba pro Telegram (parse_mode=HTML)."""
     r = [f"<b>{esc_html(nadpis(dok, shrnuti))}</b>"]
-    for emoji, text, tucne in casti(shrnuti):
+    for emoji, text, duraz in casti(shrnuti):
+        # Telegram nadpisy neumí, nejvýš tučné písmo — NADPIS tu splyne s TUCNE.
         t = esc_html(text)
-        r.append(f"{emoji} " + (f"<b>{t}</b>" if tucne else t))
+        r.append(f"{emoji} " + (f"<b>{t}</b>" if duraz else t))
     r.append("")
     r.append(esc_html(shrnuti.get("shrnuti", "")))
     r.append("")
@@ -516,9 +544,13 @@ def zprava_md(dok: dict, shrnuti: dict) -> str:
     přečíst i nevykreslená.
     """
     r = []
-    for emoji, text, tucne in casti(shrnuti):
+    for emoji, text, duraz in casti(shrnuti):
         t = esc_md(text)
-        r.append(f"{emoji} " + (f"**{t}**" if tucne else t))
+        if duraz == NADPIS:
+            # Prázdné řádky kolem: bez nich by nadpis splynul s odstavcem nad ním.
+            r += ["", f"### {emoji} {t}", ""]
+        else:
+            r.append(f"{emoji} " + (f"**{t}**" if duraz else t))
     r.append("")
     r.append(esc_md(shrnuti.get("shrnuti", "")))
     r.append("")
@@ -575,7 +607,7 @@ def posli(dok: dict, shrnuti: dict) -> list[str]:
     """
     telo = zprava_md(dok, shrnuti)
     print("\n" + "=" * 60)
-    print(nadpis(dok, shrnuti))
+    print(titulek(dok, shrnuti))
     print(telo)
 
     if DRY_RUN:
@@ -583,7 +615,7 @@ def posli(dok: dict, shrnuti: dict) -> list[str]:
         return []
 
     doruceno = []
-    if posli_issue(nadpis(dok, shrnuti), telo):
+    if posli_issue(titulek(dok, shrnuti), telo):
         doruceno.append("issue")
     if posli_telegram(zprava_html(dok, shrnuti)):
         doruceno.append("telegram")
