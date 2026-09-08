@@ -208,13 +208,17 @@ Nadpis proto nikdy neobsahuje typ dokumentu (veřejná vyhláška, oznámení, \
 opatření obecné povahy, návrh), číslo jednací ani paragrafy. Od toho jsou \
 jiná pole.
 
-Dobře: „Změna pravidel zástavby v Solníkách, projednání 29. 9."
-Dobře: „Zákaz stavět na Panenské II, připomínky do 19. 9."
+Do nadpisu nepiš ani datum projednání a lhůtu. Hlídač si datum před nadpis \
+doplní sám z pole „datum_jednani", takže by v předmětu e-mailu stálo dvakrát.
+
+Dobře: „Změna pravidel zástavby v Solníkách"
+Dobře: „Zákaz stavět na Panenské II"
 Špatně: „Veřejná vyhláška – oznámení o návrhu opatření obecné povahy"
 Špatně: „Návrh změny č. 1 regulačního plánu Solníky" (jen opsaný název)
 Špatně: „Návrh změny regulačního plánu v Solníkách, projednání 29. 9." \
-(místo i datum jsou správně, ale „návrh" a „regulační plán" jsou pořád úřední \
-pojmy, ne jejich význam; správně je „Změna pravidel zástavby v Solníkách")
+(dvě chyby najednou: „návrh" a „regulační plán" jsou úřední pojmy, ne jejich \
+význam, a datum do nadpisu nepatří; správně je „Změna pravidel zástavby \
+v Solníkách")
 
 KROK 4, SHRNUTÍ
 
@@ -274,7 +278,8 @@ doručování. Když v dokumentu žádná lhůta není, nech pole prázdné.
 KONTROLA PŘED ODESLÁNÍM
 – Je v nadpisu místo nebo lokalita, když ji dokument uvádí?
 – Nezůstal v nadpisu úřední pojem („návrh", „regulační plán", „opatření \
-obecné povahy") místo jeho významu?
+obecné povahy") místo jeho významu, nebo datum, které tam nepatří?
+– Je shrnutí napsané spisovnou češtinou, bez zkomolených slov?
 – Není ve shrnutí zakázaná věta nebo zkratka bez vysvětlení?
 – Neopakuje shrnutí termín a místo projednání, které jsou ve vlastním poli?
 – Je ze shrnutí hned jasné, jestli se s tím dá ještě něco dělat?
