@@ -69,15 +69,23 @@ jobs:
           # Náhled commituje výhradně svůj soubor. Ostrý stav (seen.json,
           # zpravy.json) se ho nesmí ani dotknout, jinak by zkušební běh
           # umlčel dokumenty, na které se ještě neupozornilo.
-          if [[ -n "$(git status --porcelain state/nahled.json)" ]]; then
-            git config user.name "hlidac-bot"
-            git config user.email "actions@github.com"
-            git add state/nahled.json
-            git commit -m "náhled: $(date '+%Y-%m-%d %H:%M')"
-            git push
-          else
+          if [[ -z "$(git status --porcelain state/nahled.json)" ]]; then
             echo "Náhled beze změny."
+            exit 0
           fi
+
+          git config user.name "hlidac-bot"
+          git config user.email "actions@github.com"
+          git add state/nahled.json
+          git commit -m "náhled: $(date '+%Y-%m-%d %H:%M')"
+
+          for pokus in 1 2 3; do
+            git push && exit 0
+            echo "Push odmítnut, srovnávám se vzdálenou větví (pokus $pokus)."
+            git pull --rebase origin "$GITHUB_REF_NAME"
+          done
+          echo "::error::Náhled se nepodařilo zapsat ani na třetí pokus."
+          exit 1
 
       - name: Uložit stav
         if: github.event.inputs.dry_run != '1' && github.event.inputs.nahled != '1'
@@ -99,4 +107,19 @@ jobs:
             exit 0
           fi
 
-          git push
+          # Souběžný běh mohl mezi checkoutem a pushem zapsat vlastní stav.
+          # Fronta (concurrency) to nezachytí celé: druhý běh stihne checkout
+          # dřív, než první dokončí push, a pak si stěžuje na „fetch first".
+          # Zkusíme se proto přerovnat a poslat znovu.
+          #
+          # Když rebase spadne na konfliktu ve state/, krok schválně spadne
+          # taky a stav zůstane nezapsaný. Dokumenty se tím příště zpracují
+          # znovu a nejhůř přijde zpráva dvakrát — což je pořád lepší než
+          # tiše přepsat, co zapsal druhý běh, a jednu zprávu ztratit.
+          for pokus in 1 2 3; do
+            git push && exit 0
+            echo "Push odmítnut, srovnávám se vzdálenou větví (pokus $pokus)."
+            git pull --rebase origin "$GITHUB_REF_NAME"
+          done
+          echo "::error::Stav se nepodařilo zapsat ani na třetí pokus."
+          exit 1

@@ -213,6 +213,16 @@ existuje. Krok „Uložit stav" proto po 30 dnech bez commitu udělá prázdný 
 Práh je půlka lhůty schválně: jeden vynechaný nebo spadlý běh nesmí stačit
 k tomu, aby se propáslo okno.
 
+**Push stavu se opakuje, ale konflikt se neřeší silou.** Fronta (`concurrency`)
+souběh nezachytí celý: druhý běh stihne checkout dřív, než první dokončí push,
+a pak dostane `! [rejected] (fetch first)`. Kroky „Uložit stav" i „Uložit
+náhled" proto zkusí `git pull --rebase` a push třikrát. Když rebase spadne na
+konfliktu ve `state/`, krok schválně spadne taky. Nikdy tam nedávej
+`--strategy-option`, `--force` ani `-X ours/theirs`: přepsat stav druhého běhu
+znamená zahodit záznam o zprávě, která už odešla. Nezapsaný stav je lepší —
+dokument se příště zpracuje znovu a nejhůř přijde zpráva dvakrát, což je
+v tomhle projektu vždycky ta lepší z obou chyb.
+
 **Dry run nesmí nic odeslat.** `DRY_RUN=1` znamená neuložit stav, nezapsat do
 archivu a nezaložit issue. Kontrola je v `posli()` hned na začátku — kdyby se
 odesílání větvilo jinam, musí ji dostat i nová větev.
