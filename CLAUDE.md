@@ -46,6 +46,24 @@ i tu jednu důležitou.
 - Roztocká deska má řádově **45 dokumentů za měsíc**, z nichž se územního
   plánování týkají jednotky. Objem je malý, takže se soupis desky vejde do
   repozitáře i do stránky bez stránkování a lazy loadingu.
+- **Co na desce doopravdy visí** (ručně roztříděných 113 dokumentů z března až
+  září 2026): územní plánování 4, stavební záměry na konkrétní RD 7, doprava 5,
+  přerušení dodávky elektřiny 4, životní prostředí 4, samospráva zhruba 37
+  (veřejnoprávní smlouvy s dotovanými spolky, pozvánky na zastupitelstvo,
+  závěrečné účty, záměry pronájmu). Zbytek, tedy skoro polovinu, tvoří volby.
+  Z toho plyne několik věcí, které jdou proti intuici:
+  - **Odstávky elektřiny na desce jsou.** Argument z README, že aplikace
+    V obraze zaplavuje lidi odstávkami, tedy nelze vyřešit jinou datovou
+    trubkou. Řeší ho jen filtr.
+  - **Volby desku o volebním roce zahltí.** 30 z těch dokumentů jsou
+    rozhodnutí o registraci kandidátních listin, a většina pro *jiné obce* —
+    Holubice, Statenice, Únětice, Libčice, Horoměřice. Roztoky je vyvěšují
+    proto, že je rozesílá ORP. Kdyby se záběr hlídače rozšiřoval, filtr podle
+    územní působnosti je potřebnější než další klíčová slova.
+  - **Za půl roku ani jedno oznámení o uložení písemnosti nebo dražba.** Obava
+    o osobní údaje v textech je tedy menší, než by se čekalo, ale nezmizela:
+    jména a parcely jsou ve stavebních záměrech a ve vyhláškách o dani
+    z nemovitých věcí.
 - **GitHub nemá atom feed pro issues** (`/issues.atom` vrací 406), jen pro
   commity. Kdyby měl někdo chtít odběr jinam než přes e-mail z issue, feed
   by si musel hlídač generovat sám ze `zpravy.json`. Nejlevnější cesta, jak
@@ -62,7 +80,9 @@ bez údržby, ne aplikace, která má růst. Držme to tak.
 GitHub Actions (cron)
   → edesky API v1 (XML) pro každou desku × každé klíčové slovo
   → dedup podle edesky_url proti state/seen.json
-  → Gemini generateContent se strukturovaným výstupem (responseSchema)
+  → Gemini generateContent se strukturovaným výstupem (responseSchema),
+    v promptu jede i seznam ulic z mistopis.json
+  → ulice z odpovědi se proti témuž seznamu ověří, neznámé se zahodí
   → filtr podle pole "relevantni"
   → GitHub issue (e-mail rozešle GitHub) + volitelně Telegram sendMessage
   → zápis do state/zpravy.json
@@ -134,6 +154,39 @@ zapsal mezi viděné, propásli bychom obsah natrvalo.
 názvu by model relevanci hádal. Regex je užší než `KEYWORDS` schválně —
 nejsou v něm „opatření obecné povahy" ani názvy lokalit. Pozor na skloňování:
 „o stavební uzávěř**e**" je s ř, ne s r.
+
+**Model musí umět říct „nevím" — od toho je `podstata_nalezena`.** Vyhlášky
+o územním plánování často neuvádějí, co se v území mění; odkážou na výkresy
+nebo na web města. Dokud pipeline nechodí za odkazem, model nemá odkud vzít
+obsah a dřív ho zaléval obecnou větou („dokumentace mění dosavadní podmínky
+v území"). Když je pole false, shrnutí to přizná první větou a stránka přidá
+štítek. **V archivu se drží i `null`** pro záznamy z doby před tímhle polem —
+`false` je tvrzení, chybějící hodnota není, a stránka to musí odlišit
+(`podstata_nalezena === false`, ne `!podstata_nalezena`).
+
+**Ulice se ověřují proti `mistopis.json`, co není ve slovníku, jde pryč.**
+Seznam je z RÚIAN (ČÚZK, kód obce Roztoky je **539627** — pozor, 539660 jsou
+Slapy), obnovuje se stažením, adresa je v souboru. Posílá se i modelu, aby
+ulice psal kanonicky. Ulice mimo slovník se do zprávy nedostane: je to buď
+halucinace, nebo ulice v jiné obci, a ve zprávě by obojí vypadalo jako
+ověřený fakt. V dry runu se zahozené vypisují — bez toho by filtr tiše ubíral
+informace. Porovnává se bez diakritiky a bez předpony „ul." / „nám.", takže
+„ul. Obránců Míru" sedne na „Obránců míru".
+
+Žalov ve slovníku je: v RÚIAN není samostatnou částí obce, je to katastrální
+území, a jeho ulice jsou v seznamu Roztok. Tabulka *lokalita → ulice*
+(Solníky → které ulice) zatím **neexistuje** a nedá se odvodit z dat — chce to
+místní znalost, ne generování.
+
+**Nadpis a shrnutí mají v promptu vlastní pravidla, včetně zakázaných vět.**
+Nadpis říká, co se děje a kde, ne jaký je to typ dokumentu. Shrnutí odpovídá
+v pořadí: co se mění → koho se to týká → co s tím můžu dělat a do kdy. Seznam
+zakázaných frází v promptu není ozdoba: jsou to věty, které model psal a které
+sedí na každou vyhlášku, takže nenesou žádnou informaci. Když se přidává nová,
+patří tam celá, ne jen její téma.
+
+**Pomlčka je „–", nikdy „—".** Platí pro prompt, pro výstup modelu i pro
+texty stránky a titulek issue.
 
 **Relevanci posuzuje model, ne jen klíčová slova.** Fulltext vytáhne pod
 „opatření obecné povahy" i dopravní uzavírky, kterých je na desce spousta.

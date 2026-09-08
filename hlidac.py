@@ -35,6 +35,7 @@ import random
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta, timezone
@@ -112,6 +113,12 @@ MAX_ARCHIV = 500
 # ze samotného názvu — což se přesně jednou stalo a je to horší než mlčet.
 MIN_TEXT_CHARS = 200
 
+# Seznam ulic Roztok a Žalova z RÚIAN. Posílá se modelu, aby ulice psal
+# kanonicky, a hlavně slouží k tomu, aby se z jeho odpovědi vyhodily ulice,
+# které v Roztokách neexistují. Ruční doplňování zakázáno: soubor se obnovuje
+# stažením z ČÚZK, adresa je uvnitř.
+MISTOPIS_FILE = pathlib.Path("mistopis.json")
+
 # Kolik znaků textu dokumentu posílat do modelu.
 # Záměrně málo: podstatné (co, kde, kdy, do kdy) bývá na první stránce,
 # zatímco rozdělovník s desítkami jmen a adres je až na konci. Tím se
@@ -151,44 +158,103 @@ RE_SILNE = re.compile(
     re.IGNORECASE,
 )
 
-PROMPT = """Jsi asistent, který pomáhá obyvatelům města porozumět úředním \
-vyhláškám o územním plánování.
+PROMPT = """Jsi redaktor, který obyvatelům Roztok a Žalova překládá dokumenty \
+z úřední desky do srozumitelné češtiny. Nejsi právník ani mluvčí úřadu, jsi \
+soused, který ostatním vysvětlí, co pro ně ta vyhláška znamená.
 
-Dostaneš text dokumentu z úřední desky. Vyhodnoť ho a odpověz v JSON.
+Dostaneš text dokumentu z úřední desky. Odpověz v JSON podle schématu. Piš \
+česky, krátkými větami, v přítomném čase, bez úřednických obratů. Pomlčka je \
+vždycky „–", nikdy „—".
 
-Nejdřív rozhodni, zda dokument opravdu souvisí s pořizováním nebo změnou \
-územně plánovací dokumentace (územní plán, regulační plán, územní studie, \
-územní opatření o stavební uzávěře, vymezení zastavěného území) — typicky \
-oznámení o společném jednání, veřejném projednání, o vydání nebo o zahájení \
-pořizování. Pokud jde o něco jiného (odstávka elektřiny, dražba, výběrové \
-řízení, uzavírka silnice, běžné územní nebo stavební řízení o jedné konkrétní \
-stavbě, oznámení o uložení písemnosti), nastav "relevantni" na false a ostatní \
-pole nech prázdná.
+KROK 1, RELEVANCE
 
-Pokud relevantní je, vyplň zbytek. Piš česky, srozumitelně, bez úřednického \
-jazyka, tak aby tomu rozuměl člověk bez právního vzdělání. Nevymýšlej si — co \
-v textu není, nech prázdné.
+Rozhodni, jestli dokument souvisí s pořizováním nebo změnou územně plánovací \
+dokumentace (územní plán, regulační plán, územní studie, územní opatření o \
+stavební uzávěře, vymezení zastavěného území), typicky oznámení o společném \
+jednání, veřejném projednání, o vydání nebo o zahájení pořizování. Pokud jde o \
+něco jiného (odstávka elektřiny, dražba, výběrové řízení, uzavírka silnice, \
+volby, běžné územní nebo stavební řízení o jedné konkrétní stavbě, oznámení o \
+uložení písemnosti), nastav „relevantni" na false a ostatní pole nech prázdná.
 
-LHŮTY A DATA jsou to nejdůležitější, kvůli čemu tuhle zprávu někdo dostane. \
-Řiď se tímhle:
+KROK 2, MÍSTO
 
-- Absolutní datum piš ve formátu DD.MM.RRRR.
-- Lhůty v těchhle vyhláškách bývají popsané vztahem k události, ne datem — \
+„lokalita" je místní název, pod kterým to lidé znají: Solníky, Panenská II, \
+Dubečnice, Tiché údolí, Žalov. Uveď ho, jen když v dokumentu opravdu je.
+
+„ulice" jsou ulice, kde se něco mění nebo kde bude něco platit. Nepatří sem \
+ulice, které jsou v textu jen jako orientační bod: z věty „naproti křížení s \
+ulicí Braunerova" se mění něco jinde, ne v Braunerově. Piš je v prvním pádě a \
+přesně v té podobě, v jaké stojí v tomhle seznamu ulic Roztok a Žalova:
+
+{ulice}
+
+Ulici, která v dokumentu není, nikdy nedoplňuj. Když dokument žádnou neuvádí, \
+nech pole prázdné. U územně plánovací dokumentace je to běžné, protože \
+vymezení bývá jen ve výkresech.
+
+KROK 3, NADPIS
+
+Nadpis říká, CO se děje a KDE. Nejvýš 12 slov. Nikdy v něm není typ dokumentu \
+(veřejná vyhláška, oznámení, opatření obecné povahy, návrh), číslo jednací ani \
+paragrafy. Od toho jsou jiná pole.
+
+Dobře: „Změna pravidel zástavby v Solníkách, projednání 29. 9."
+Špatně: „Veřejná vyhláška – oznámení o návrhu opatření obecné povahy"
+Špatně: „Návrh změny č. 1 regulačního plánu Solníky" (jen opsaný název)
+
+KROK 4, SHRNUTÍ
+
+Tři až čtyři věty, nejvýš 90 slov, v tomhle pořadí:
+
+1. Co konkrétně se mění nebo děje, i s místem. Pojmy přelož na význam: \
+regulační plán jsou podrobná pravidla, co a jak se smí v dané lokalitě \
+stavět; územní plán je základní plán, kde smí být domy, zeleň a průmysl; \
+územní studie je podklad, který prověřuje, jak by se lokalita dala uspořádat; \
+stavební uzávěra znamená, že se tam zatím nesmí stavět.
+2. Koho se to týká, tedy kde bydlí nebo co vlastní.
+3. Co s tím může udělat a do kdy. Rozliš připomínku, kterou může podat \
+kdokoli, od námitky, kterou smí podat jen dotčení vlastníci. Když dokument \
+říká, že námitky podat nelze, napiš to.
+4. Nepovinně kontext, který dokument sám uvádí a laikovi pomůže: kdo o změnu \
+požádal a proč.
+
+ZAKÁZANÉ VĚTY. Tyhle věty neplatí o ničem konkrétním, protože sedí na každou \
+vyhlášku. Nepiš je ani jinými slovy:
+– „mění dosavadní podmínky v území"
+– „může ovlivnit budoucí podobu a rozvoj lokality"
+– „obyvatelé se mohou seznámit s dokumentací"
+– „dokumentace je k nahlédnutí na úřadě nebo na webu města"
+– „veřejnost se může vyjádřit v zákonné lhůtě"
+– „úřad vydal opatření obecné povahy"
+
+KDYŽ PODSTATA CHYBÍ. Když v textu není, co konkrétně se v území mění, a \
+dokument jen odkazuje na výkresy, na přílohy nebo na web města, nastav \
+„podstata_nalezena" na false a napiš to rovnou jako první větu shrnutí, \
+například: „Co přesně se v Solníkách změní, vyhláška neuvádí, podrobnosti \
+jsou jen v textové části a ve výkresech na webu města." Zbytek shrnutí, tedy \
+koho se to týká a do kdy se dá reagovat, napiš normálně, ty údaje ve vyhlášce \
+jsou. Obsah si nedomýšlej. Přiznat, že podstata chybí, je užitečná informace, \
+obecná věta není nic. Když v textu naopak je, co se mění, nastav \
+„podstata_nalezena" na true.
+
+LHŮTY A DATA jsou to nejdůležitější, kvůli čemu tuhle zprávu někdo dostane.
+– Absolutní datum piš ve formátu DD.MM.RRRR.
+– Lhůty v těchhle vyhláškách bývají popsané vztahem k události, ne datem, \
 například „námitky lze podat nejpozději do 7 dnů ode dne veřejného \
 projednání" nebo „do 30 dnů ode dne doručení". Takovou lhůtu opiš přesně tak, \
-jak je v dokumentu. Pole "deadline" NENECHÁVEJ prázdné jen proto, že tam není \
+jak je v dokumentu. Pole „deadline" NENECHÁVEJ prázdné jen proto, že tam není \
 konkrétní datum.
-- Když je v dokumentu i datum události, od které se lhůta počítá, dopočítej \
-výsledné datum a napiš obojí, třeba: „09.09.2026 (7 dnů od veřejného \
+– Když je v dokumentu i datum události, od které se lhůta počítá, dopočítej \
+výsledné datum a napiš obojí, třeba „09.09.2026 (7 dnů od veřejného \
 projednání)".
-- Lhůtu si nikdy nedomýšlej. Když v dokumentu žádná není, nech pole prázdné.
+– Lhůtu si nikdy nedopočítávej z paragrafů ani z obecných pravidel o \
+doručování. Když v dokumentu žádná lhůta není, nech pole prázdné.
 
-SHRNUTÍ musí být konkrétní. Napiš, co se v území mění a co to znamená pro \
-toho, kdo tam bydlí nebo vlastní pozemek. Vynech obecné věty, které platí o \
-každé vyhlášce — nepiš nic ve smyslu „změna může ovlivnit budoucí podobu a \
-rozvoj lokality" ani „obyvatelé se mohou seznámit a uplatnit připomínky". \
-Když dokument sám neuvádí, co konkrétně se mění, a odkazuje na přílohy, \
-napiš rovnou to.
+KONTROLA PŘED ODESLÁNÍM
+– Je v nadpisu místo nebo lokalita, když ji dokument uvádí?
+– Není ve shrnutí zakázaná věta nebo zkratka bez vysvětlení?
+– Je ze shrnutí hned jasné, jestli se s tím dá ještě něco dělat?
+– Jsou všechny ulice, lokality a data doslova v dokumentu?
 
 Dokument byl vyvěšen na úřední desce {vyveseno}.
 
@@ -217,7 +283,20 @@ SCHEMA = {
         },
         "lokalita": {
             "type": "STRING",
-            "description": "Kterých míst, ulic nebo lokalit se to týká.",
+            "description": (
+                "Místní název, pod kterým lokalitu znají místní (Solníky, "
+                "Panenská II, Tiché údolí, Žalov). Prázdné, když ho dokument "
+                "neuvádí."
+            ),
+        },
+        "ulice": {
+            "type": "ARRAY",
+            "items": {"type": "STRING"},
+            "description": (
+                "Ulice, kde se něco mění nebo kde bude něco platit, v prvním "
+                "pádě a v podobě ze seznamu ulic. Ne ulice zmíněné jen jako "
+                "orientační bod. Jen ty, které v dokumentu doslova jsou."
+            ),
         },
         "datum_jednani": {
             "type": "STRING",
@@ -243,13 +322,67 @@ SCHEMA = {
         "shrnuti": {
             "type": "STRING",
             "description": (
-                "3 až 5 vět o tom, co konkrétně se v území mění a co to znamená "
-                "pro místní. Bez obecných frází, které platí o každé vyhlášce."
+                "3 až 4 věty: co konkrétně se mění a kde, koho se to týká, co "
+                "s tím může udělat a do kdy. Bez obecných frází, které platí "
+                "o každé vyhlášce."
+            ),
+        },
+        "podstata_nalezena": {
+            "type": "BOOLEAN",
+            "description": (
+                "Je v textu, co konkrétně se v území mění? False, když "
+                "dokument jen odkazuje na výkresy, přílohy nebo na web města."
             ),
         },
     },
-    "required": ["relevantni", "nadpis", "shrnuti"],
+    # podstata_nalezena je povinná schválně: chybějící hodnota by se nedala
+    # odlišit od „model si je jistý" a stránka by mlčky tvrdila víc, než ví.
+    "required": ["relevantni", "nadpis", "shrnuti", "podstata_nalezena"],
 }
+
+
+# --------------------------------------------------------------------------
+# Místopis
+# --------------------------------------------------------------------------
+
+def nacti_ulice() -> dict[str, str]:
+    """Vrátí {porovnávací klíč: kanonický název ulice} z mistopis.json."""
+    data = json.loads(MISTOPIS_FILE.read_text(encoding="utf-8"))
+    return {klic_ulice(u): u for u in data["ulice"]}
+
+
+# „ul. Havlíčkova" i „náměstí 5. května" mají vést na stejný klíč jako holý
+# název ze slovníku. Předpona se proto strhává z obou stran porovnání.
+RE_PREDPONA_ULICE = re.compile(r"^(?:ul\.|ulice|ulici|nám\.|náměstí)\s+", re.IGNORECASE)
+
+
+def klic_ulice(s: str) -> str:
+    """
+    Porovnávací tvar názvu ulice: bez diakritiky, malými písmeny, bez
+    interpunkce. „Obránců Míru" i „ul. Obránců míru" dají „obrancu miru".
+    """
+    s = RE_PREDPONA_ULICE.sub("", (s or "").strip())
+    s = "".join(z for z in unicodedata.normalize("NFD", s) if not unicodedata.combining(z))
+    return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+
+
+def rozeznej_ulice(navrzene: list, slovnik: dict[str, str]) -> tuple[list[str], list[str]]:
+    """
+    Rozdělí ulice od modelu na ty, které v Roztokách existují, a na zbytek.
+
+    Neznámé se do zprávy nedostanou. Je to buď halucinace, nebo ulice v jiné
+    obci, a obojí by ve zprávě vystupovalo jako ověřený fakt. Kdo potřebuje
+    přesné vymezení, má o kliknutí dál originál. V dry runu se neznámé vypíšou,
+    ať je poznat, jestli filtr nezahazuje něco správného.
+    """
+    ovrene, nezname = [], []
+    for u in navrzene or []:
+        kanonicka = slovnik.get(klic_ulice(u))
+        if kanonicka and kanonicka not in ovrene:
+            ovrene.append(kanonicka)
+        elif not kanonicka and str(u).strip():
+            nezname.append(str(u).strip())
+    return ovrene, nezname
 
 
 # --------------------------------------------------------------------------
@@ -518,6 +651,9 @@ def holy_nalez(dok: dict) -> dict:
             "neexistuje a nechci si ho domýšlet. Otevřete prosím originál. "
             "Až text přibude, pošlu zprávu znovu i se shrnutím."
         ),
+        # Bez textu není co najít, natož odkud opsat ulice.
+        "podstata_nalezena": False,
+        "ulice": [],
         "bez_textu": True,
     }
 
@@ -525,10 +661,16 @@ def holy_nalez(dok: dict) -> dict:
 def prelozi_do_lidstiny(dok: dict) -> dict | None:
     """Pošle text do Gemini a vrátí strukturované shrnutí, nebo None."""
     text = (dok["nazev"] + "\n\n" + dok["text"])[:MAX_TEXT_CHARS]
+    slovnik = nacti_ulice()
 
     vyveseno = dok.get("vlozeno", "")[:10] or "neuvedeno"
+    zadani = PROMPT.format(
+        text=text,
+        vyveseno=vyveseno,
+        ulice=", ".join(slovnik.values()),
+    )
     payload = {
-        "contents": [{"parts": [{"text": PROMPT.format(text=text, vyveseno=vyveseno)}]}],
+        "contents": [{"parts": [{"text": zadani}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
             "responseSchema": SCHEMA,
@@ -554,10 +696,15 @@ def prelozi_do_lidstiny(dok: dict) -> dict | None:
         data = resp.json()
         try:
             raw = data["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(raw)
+            shrnuti = json.loads(raw)
         except (KeyError, IndexError, json.JSONDecodeError) as exc:
             print(f"  ! nečekaná odpověď Gemini: {exc}", file=sys.stderr)
             return None
+
+        shrnuti["ulice"], shrnuti["ulice_nezname"] = rozeznej_ulice(
+            shrnuti.get("ulice"), slovnik
+        )
+        return shrnuti
 
     print("  ! Gemini se nepodařilo zavolat ani na pátý pokus", file=sys.stderr)
     return None
@@ -586,7 +733,7 @@ def titulek(dok: dict, shrnuti: dict) -> str:
     """
     t = nadpis(dok, shrnuti)
     m = RE_DEN_MESIC.search(shrnuti.get("datum_jednani") or "")
-    return f"Projednání {int(m[1])}. {int(m[2])}. — {t}" if m else t
+    return f"Projednání {int(m[1])}. {int(m[2])}. – {t}" if m else t
 
 
 # Důraz řádku ve zprávě. NADPIS je vyhrazený datu veřejného projednání.
@@ -607,8 +754,15 @@ def casti(shrnuti: dict) -> list[tuple[str, str, int]]:
     další pole.
     """
     r = []
-    if shrnuti.get("lokalita"):
-        r.append(("📍", shrnuti["lokalita"], BEZNE))
+    # Lokalita a ulice patří k sobě: obojí odpovídá na „týká se to mě?".
+    # Lokalita je pro místní srozumitelnější, ulice přesnější, proto v tomhle
+    # pořadí a na jednom řádku.
+    misto = " · ".join(x for x in (
+        shrnuti.get("lokalita", ""),
+        ", ".join(shrnuti.get("ulice") or []),
+    ) if x)
+    if misto:
+        r.append(("📍", misto, BEZNE))
     if shrnuti.get("datum_jednani"):
         r.append(("🗓", f"Veřejné projednání {shrnuti['datum_jednani']}", NADPIS))
         if shrnuti.get("misto_jednani"):
@@ -706,6 +860,16 @@ def diagnostika(dok: dict, shrnuti: dict) -> None:
         print("          ! v textu datum je, ale model žádné nevrátil")
     if lhuty and not shrnuti.get("deadline"):
         print("          ! v textu lhůta je, ale model ji nevrátil")
+
+    if not shrnuti.get("podstata_nalezena"):
+        print("          podstata v textu není, shrnutí to přiznává")
+    ulice = shrnuti.get("ulice") or []
+    print(f"          ulice ze slovníku: {', '.join(ulice) if ulice else '(žádné)'}")
+    # Zahozené ulice jsou hlavní signál, že se prompt nebo slovník rozchází
+    # s realitou. Bez tohohle výpisu by filtr tiše ubíral informace.
+    if shrnuti.get("ulice_nezname"):
+        print("          ! mimo slovník, zahozeno: "
+              + ", ".join(shrnuti["ulice_nezname"]))
 
 
 def posli(dok: dict, shrnuti: dict) -> list[str]:
@@ -835,6 +999,7 @@ def zaznam(dok: dict, shrnuti: dict, doruceno: list[str]) -> dict:
         "cas": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "nadpis": nadpis(dok, shrnuti),
         "lokalita": shrnuti.get("lokalita", ""),
+        "ulice": shrnuti.get("ulice") or [],
         "datum_jednani": shrnuti.get("datum_jednani", ""),
         "misto_jednani": shrnuti.get("misto_jednani", ""),
         "deadline": shrnuti.get("deadline", ""),
@@ -846,6 +1011,9 @@ def zaznam(dok: dict, shrnuti: dict, doruceno: list[str]) -> dict:
         "url": dok["url"],
         "orig_url": dok.get("orig_url", ""),
         "doruceno": doruceno,
+        # Schválně bez bool(): None znamená „nebylo se koho ptát" a stránka
+        # ho musí umět odlišit od tvrzení „podstata chybí".
+        "podstata_nalezena": shrnuti.get("podstata_nalezena"),
         "bez_textu": bool(shrnuti.get("bez_textu")),
     }
 
