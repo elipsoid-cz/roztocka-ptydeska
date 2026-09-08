@@ -166,6 +166,10 @@ Dostaneš text dokumentu z úřední desky. Odpověz v JSON podle schématu. Pi�
 česky, krátkými větami, v přítomném čase, bez úřednických obratů. Pomlčka je \
 vždycky „–", nikdy „—".
 
+O úřadu piš vždycky ve třetí osobě: „město pořizuje", „úřad vydal". Nikdy ne \
+„projednáme", „vydali jsme", „naše" ani „přijďte k nám". Tenhle text nepíše \
+radnice, ale nezávislý hlídač, a čtenář si ty dva hlasy nesmí splést.
+
 KROK 1, RELEVANCE
 
 Rozhodni, jestli dokument souvisí s pořizováním nebo změnou územně plánovací \
@@ -280,6 +284,7 @@ KONTROLA PŘED ODESLÁNÍM
 – Nezůstal v nadpisu úřední pojem („návrh", „regulační plán", „opatření \
 obecné povahy") místo jeho významu, nebo datum, které tam nepatří?
 – Je shrnutí napsané spisovnou češtinou, bez zkomolených slov?
+– Nemluvíš někde za úřad v první osobě („projednáme", „vydali jsme")?
 – Není ve shrnutí zakázaná věta nebo zkratka bez vysvětlení?
 – Neopakuje shrnutí termín a místo projednání, které jsou ve vlastním poli?
 – Je ze shrnutí hned jasné, jestli se s tím dá ještě něco dělat?
