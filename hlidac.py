@@ -194,13 +194,27 @@ vymezení bývá jen ve výkresech.
 
 KROK 3, NADPIS
 
-Nadpis říká, CO se děje a KDE. Nejvýš 12 slov. Nikdy v něm není typ dokumentu \
-(veřejná vyhláška, oznámení, opatření obecné povahy, návrh), číslo jednací ani \
-paragrafy. Od toho jsou jiná pole.
+Nadpis říká, CO se děje a KDE. Nejvýš 12 slov.
+
+Nejdůležitější pravidlo nadpisu: úřední pojmy v něm přelož na to, co \
+znamenají. Nestačí je přepsat a přidat místo a datum.
+– regulační plán → pravidla zástavby, tedy co a jak se tam smí stavět
+– územní plán → plán, kde smí být domy, zeleň a průmysl
+– územní studie → prověření, jak by se lokalita dala uspořádat
+– územní opatření o stavební uzávěře → zákaz stavět
+– návrh změny → chystaná změna
+
+Nadpis proto nikdy neobsahuje typ dokumentu (veřejná vyhláška, oznámení, \
+opatření obecné povahy, návrh), číslo jednací ani paragrafy. Od toho jsou \
+jiná pole.
 
 Dobře: „Změna pravidel zástavby v Solníkách, projednání 29. 9."
+Dobře: „Zákaz stavět na Panenské II, připomínky do 19. 9."
 Špatně: „Veřejná vyhláška – oznámení o návrhu opatření obecné povahy"
 Špatně: „Návrh změny č. 1 regulačního plánu Solníky" (jen opsaný název)
+Špatně: „Návrh změny regulačního plánu v Solníkách, projednání 29. 9." \
+(místo i datum jsou správně, ale „návrh" a „regulační plán" jsou pořád úřední \
+pojmy, ne jejich význam; správně je „Změna pravidel zástavby v Solníkách")
 
 KROK 4, SHRNUTÍ
 
@@ -217,6 +231,10 @@ kdokoli, od námitky, kterou smí podat jen dotčení vlastníci. Když dokument
 říká, že námitky podat nelze, napiš to.
 4. Nepovinně kontext, který dokument sám uvádí a laikovi pomůže: kdo o změnu \
 požádal a proč.
+
+Termín a místo veřejného projednání do shrnutí nepiš. Mají vlastní pole a ve \
+zprávě stojí zvlášť hned nad shrnutím, takže by se jen zopakovaly a ubraly \
+místo tomu podstatnému. Lhůta pro připomínky ve shrnutí naopak být má.
 
 ZAKÁZANÉ VĚTY. Tyhle věty neplatí o ničem konkrétním, protože sedí na každou \
 vyhlášku. Nepiš je ani jinými slovy:
@@ -238,21 +256,27 @@ obecná věta není nic. Když v textu naopak je, co se mění, nastav \
 „podstata_nalezena" na true.
 
 LHŮTY A DATA jsou to nejdůležitější, kvůli čemu tuhle zprávu někdo dostane.
-– Absolutní datum piš ve formátu DD.MM.RRRR.
+– Absolutní datum piš ve formátu DD.MM.RRRR, vždycky dvojciferně: \
+„29.09.2026", ne „29.9.2026".
 – Lhůty v těchhle vyhláškách bývají popsané vztahem k události, ne datem, \
 například „námitky lze podat nejpozději do 7 dnů ode dne veřejného \
 projednání" nebo „do 30 dnů ode dne doručení". Takovou lhůtu opiš přesně tak, \
 jak je v dokumentu. Pole „deadline" NENECHÁVEJ prázdné jen proto, že tam není \
 konkrétní datum.
-– Když je v dokumentu i datum události, od které se lhůta počítá, dopočítej \
-výsledné datum a napiš obojí, třeba „09.09.2026 (7 dnů od veřejného \
-projednání)".
+– Když dokument uvádí obojí, tedy lhůtu vztaženou k události i datum té \
+události, MUSÍŠ napsat obojí: dopočítané datum a v závorce, odkud se počítá. \
+Třeba „14.10.2026 (15 dnů od veřejného projednání)". Samotné datum bez \
+závorky je v takovém případě chyba, protože čtenář nepozná, na čem lhůta visí \
+a co se s ní stane, když se projednání přeloží.
 – Lhůtu si nikdy nedopočítávej z paragrafů ani z obecných pravidel o \
 doručování. Když v dokumentu žádná lhůta není, nech pole prázdné.
 
 KONTROLA PŘED ODESLÁNÍM
 – Je v nadpisu místo nebo lokalita, když ji dokument uvádí?
+– Nezůstal v nadpisu úřední pojem („návrh", „regulační plán", „opatření \
+obecné povahy") místo jeho významu?
 – Není ve shrnutí zakázaná věta nebo zkratka bez vysvětlení?
+– Neopakuje shrnutí termín a místo projednání, které jsou ve vlastním poli?
 – Je ze shrnutí hned jasné, jestli se s tím dá ještě něco dělat?
 – Jsou všechny ulice, lokality a data doslova v dokumentu?
 
