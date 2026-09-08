@@ -1,6 +1,6 @@
 [
  {
-  "cas": "2026-09-08T07:56:56+00:00",
+  "cas": "2026-09-08T08:02:56+00:00",
   "nadpis": "Změna pravidel zástavby na Panenské II",
   "lokalita": "Panenská II",
   "ulice": [],
@@ -8,7 +8,7 @@
   "misto_jednani": "zasedací místnost Městského úřadu Roztoky",
   "deadline": "19.09.2026 (15 dnů ode dne veřejného projednání)",
   "kdo_muze_podat": "Připomínku může podat každý, námitky nelze podat.",
-  "shrnuti": "Co přesně se v lokalitě Panenská II změní, vyhláška neuvádí, podrobnosti jsou dostupné v textové části a ve výkresech na webu města a v geoportálu. Změna se týká vlastníků pozemků a obyvatel v této oblasti. Každý může podat písemnou připomínku do 19.09.2026 (15 dnů ode dne veřejného projednání), přičemž námitky podat nelze.",
+  "shrnuti": "Co přesně se v lokalitě Panenská II změní, vyhláška neuvádí, podrobnosti jsou jen v textové části a ve výkresech na webu města a na geoportálu. Změna se týká vlastníků a obyvatel v této oblasti. Každý může podat písemnou připomínku do 19.09.2026 (15 dnů ode dne veřejného projednání), námitky podat nelze.",
   "nazev_dokumentu": "VV - návrh změny č. 2 regulačního plánu Roztoky- Panenská II - úde č. 104",
   "deska": "Město Roztoky",
   "vlozeno": "2026-08-04",
@@ -20,15 +20,15 @@
   "relevantni": true
  },
  {
-  "cas": "2026-09-08T07:57:01+00:00",
+  "cas": "2026-09-08T08:03:02+00:00",
   "nadpis": "Změna pravidel zástavby v Solníkách",
   "lokalita": "Solníky",
   "ulice": [],
-  "datum_jednani": "29.09.2026 16:00",
-  "misto_jednani": "zasedací místnost Městského úřadu Roztoky",
-  "deadline": "14.10.2026 (15 dnů ode dne veřejného projednání)",
-  "kdo_muze_podat": "Kdokoliv může podat písemnou připomínku. Námitky podat nelze.",
-  "shrnuti": "Město pořizuje změnu pravidel zástavby v Solníkách, které určují, co a jak se v této lokalitě smí stavět. Týká se to vlastníků pozemků a domů v Solníkách a všech, kdo tam chtějí stavět. Proti návrhu nelze podat námitky, ale kdokoli může podat písemnou připomínku do 14.10.2026 (15 dnů ode dne veřejného projednání). Co přesně se v Solníkách změní, vyhláška neuvádí, podrobnosti jsou jen v textové části a ve výkresech na webu města.",
+  "datum_jednani": "29.09.2026 od 16:00",
+  "misto_jednani": "Zasedací místnost Městského úřadu Roztoky",
+  "deadline": "14.10.2026 (15 dnů od veřejného projednání)",
+  "kdo_muze_podat": "Každý může podat připomínku, námitky podat nelze.",
+  "shrnuti": "Město pořizuje návrh na změnu podrobných pravidel zástavby v Solníkách. Týká se to vlastníků nemovitostí a obyvatel v této lokalitě. Každý může podat písemnou připomínku do 14.10.2026 (15 dnů od veřejného projednání), námitky podat nelze. Co přesně se v Solníkách změní, vyhláška neuvádí, podrobnosti jsou dostupné na webu města.",
   "nazev_dokumentu": "VV - návrh změny č. 1 regulačního plánu Solníky - úde č. 147",
   "deska": "Město Roztoky",
   "vlozeno": "2026-08-27",
@@ -40,7 +40,7 @@
   "relevantni": true
  },
  {
-  "cas": "2026-09-08T07:57:06+00:00",
+  "cas": "2026-09-08T08:03:07+00:00",
   "nadpis": "Rozhodnutí registrace KL TOP 09 a nezávislí pro Roztoky a Žalov s podporou Pirátů - úde č. 125",
   "lokalita": "",
   "ulice": [],
@@ -60,7 +60,7 @@
   "relevantni": false
  },
  {
-  "cas": "2026-09-08T07:57:11+00:00",
+  "cas": "2026-09-08T08:03:11+00:00",
   "nadpis": "Rozhodnutí registrace KL Společně pro Roztoky a Žalov - úde.č. 124",
   "lokalita": "",
   "ulice": [],
